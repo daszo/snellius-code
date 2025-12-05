@@ -1,4 +1,4 @@
-torch==1.7.0
+torch==1.7.1
 transformers==4.17.0
 wandb
 datasets==1.18.0
