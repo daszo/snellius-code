@@ -1,4 +1,9 @@
-from data import IndexingTrainDataset, GenerateDataset, IndexingCollator, QueryEvalCollator
+from data import (
+    IndexingTrainDataset,
+    GenerateDataset,
+    IndexingCollator,
+    QueryEvalCollator,
+)
 from transformers import (
     T5Tokenizer,
     T5TokenizerFast,
@@ -20,6 +25,10 @@ from dataclasses import dataclass, field
 from typing import Optional
 import json
 from tqdm import tqdm
+import pandas as pd
+
+from CE.utils.database import write_db
+
 set_seed(313)
 
 
@@ -32,10 +41,11 @@ class RunArguments:
     remove_prompt: Optional[bool] = field(default=False)
     train_file: str = field(default=None)
     valid_file: str = field(default=None)
-    task: str = field(default=None,  metadata={"help": "DSI, docTquery, generation"})
+    task: str = field(default=None, metadata={"help": "DSI, docTquery, generation"})
     top_k: Optional[int] = field(default=10)
     num_return_sequences: Optional[int] = field(default=10)
     q_max_length: Optional[int] = field(default=32)
+    table_name: Optional[str] | Optional[None] = field(default=None)
 
 
 def make_compute_metrics(tokenizer, valid_ids):
@@ -44,8 +54,7 @@ def make_compute_metrics(tokenizer, valid_ids):
         hit_at_1 = 0
         hit_at_10 = 0
         for beams, label in zip(eval_preds.predictions, eval_preds.label_ids):
-            rank_list = tokenizer.batch_decode(beams,
-                                               skip_special_tokens=True)
+            rank_list = tokenizer.batch_decode(beams, skip_special_tokens=True)
             label_id = tokenizer.decode(label, skip_special_tokens=True)
             # filter out duplicates and invalid docids
             filtered_rank_list = []
@@ -58,7 +67,11 @@ def make_compute_metrics(tokenizer, valid_ids):
                 hit_at_10 += 1
                 if hits[0] == 0:
                     hit_at_1 += 1
-        return {"Hits@1": hit_at_1 / len(eval_preds.predictions), "Hits@10": hit_at_10 / len(eval_preds.predictions)}
+        return {
+            "Hits@1": hit_at_1 / len(eval_preds.predictions),
+            "Hits@10": hit_at_10 / len(eval_preds.predictions),
+        }
+
     return compute_metrics
 
 
@@ -73,32 +86,49 @@ def main():
         wandb.login()
         wandb.init(project="DSI", name=training_args.run_name)
 
-    if 'mt5' in run_args.model_name:
-        tokenizer = MT5Tokenizer.from_pretrained(run_args.model_name, cache_dir='cache')
-        fast_tokenizer = MT5TokenizerFast.from_pretrained(run_args.model_name, cache_dir='cache')
+    if "mt5" in run_args.model_name:
+        tokenizer = MT5Tokenizer.from_pretrained(run_args.model_name, cache_dir="cache")
+        fast_tokenizer = MT5TokenizerFast.from_pretrained(
+            run_args.model_name, cache_dir="cache"
+        )
         if run_args.model_path:
-            model = MT5ForConditionalGeneration.from_pretrained(run_args.model_path, cache_dir='cache')
+            model = MT5ForConditionalGeneration.from_pretrained(
+                run_args.model_path, cache_dir="cache"
+            )
         else:
-            model = MT5ForConditionalGeneration.from_pretrained(run_args.model_name, cache_dir='cache')
+            model = MT5ForConditionalGeneration.from_pretrained(
+                run_args.model_name, cache_dir="cache"
+            )
     else:
-        tokenizer = T5Tokenizer.from_pretrained(run_args.model_name, cache_dir='cache')
-        fast_tokenizer = T5TokenizerFast.from_pretrained(run_args.model_name, cache_dir='cache')
+        tokenizer = T5Tokenizer.from_pretrained(run_args.model_name, cache_dir="cache")
+        fast_tokenizer = T5TokenizerFast.from_pretrained(
+            run_args.model_name, cache_dir="cache"
+        )
         if run_args.model_path:
-            model = T5ForConditionalGeneration.from_pretrained(run_args.model_path, cache_dir='cache')
+            model = T5ForConditionalGeneration.from_pretrained(
+                run_args.model_path, cache_dir="cache"
+            )
         else:
-            model = T5ForConditionalGeneration.from_pretrained(run_args.model_name, cache_dir='cache')
+            model = T5ForConditionalGeneration.from_pretrained(
+                run_args.model_name, cache_dir="cache"
+            )
+    table_name = run_args.table_name
 
     if run_args.task == "docTquery":
-        train_dataset = IndexingTrainDataset(path_to_data=run_args.train_file,
-                                             max_length=run_args.max_length,
-                                             cache_dir='cache',
-                                             tokenizer=tokenizer)
+        train_dataset = IndexingTrainDataset(
+            path_to_data=run_args.train_file,
+            max_length=run_args.max_length,
+            cache_dir="cache",
+            tokenizer=tokenizer,
+        )
 
-        valid_dataset = IndexingTrainDataset(path_to_data=run_args.valid_file,
-                                             max_length=run_args.max_length,
-                                             cache_dir='cache',
-                                             remove_prompt=run_args.remove_prompt,
-                                             tokenizer=tokenizer)
+        valid_dataset = IndexingTrainDataset(
+            path_to_data=run_args.valid_file,
+            max_length=run_args.max_length,
+            cache_dir="cache",
+            remove_prompt=run_args.remove_prompt,
+            tokenizer=tokenizer,
+        )
         trainer = DocTqueryTrainer(
             do_generation=False,
             model=model,
@@ -108,22 +138,26 @@ def main():
             eval_dataset=valid_dataset,
             data_collator=IndexingCollator(
                 tokenizer,
-                padding='longest',
+                padding="longest",
             ),
         )
         trainer.train()
 
     elif run_args.task == "DSI":
-        train_dataset = IndexingTrainDataset(path_to_data=run_args.train_file,
-                                             max_length=run_args.max_length,
-                                             cache_dir='cache',
-                                             tokenizer=tokenizer)
+        train_dataset = IndexingTrainDataset(
+            path_to_data=run_args.train_file,
+            max_length=run_args.max_length,
+            cache_dir="cache",
+            tokenizer=tokenizer,
+        )
 
-        valid_dataset = IndexingTrainDataset(path_to_data=run_args.valid_file,
-                                             max_length=run_args.max_length,
-                                             cache_dir='cache',
-                                             remove_prompt=run_args.remove_prompt,
-                                             tokenizer=tokenizer)
+        valid_dataset = IndexingTrainDataset(
+            path_to_data=run_args.valid_file,
+            max_length=run_args.max_length,
+            cache_dir="cache",
+            remove_prompt=run_args.remove_prompt,
+            tokenizer=tokenizer,
+        )
         ################################################################
         # docid generation constrain, we only generate integer docids.
         SPIECE_UNDERLINE = "▁"
@@ -140,6 +174,7 @@ def main():
 
         def restrict_decode_vocab(batch_idx, prefix_beam):
             return INT_TOKEN_IDS
+
         ################################################################
 
         trainer = DSITrainer(
@@ -150,19 +185,24 @@ def main():
             eval_dataset=valid_dataset,
             data_collator=IndexingCollator(
                 tokenizer,
-                padding='longest',
+                padding="longest",
             ),
-            compute_metrics=make_compute_metrics(fast_tokenizer, train_dataset.valid_ids),
+            compute_metrics=make_compute_metrics(
+                fast_tokenizer, train_dataset.valid_ids
+            ),
             restrict_decode_vocab=restrict_decode_vocab,
-            id_max_length=run_args.id_max_length
+            id_max_length=run_args.id_max_length,
         )
         trainer.train()
 
-    elif run_args.task == 'generation':
-        generate_dataset = GenerateDataset(path_to_data=run_args.valid_file,
-                                           max_length=run_args.max_length,
-                                           cache_dir='cache',
-                                           tokenizer=tokenizer)
+    elif run_args.task == "generation":
+        generate_dataset = GenerateDataset(
+            path_to_data=run_args.valid_file,
+            max_length=run_args.max_length,
+            cache_dir="cache",
+            tokenizer=tokenizer,
+            table_name=table_name,
+        )
 
         trainer = DocTqueryTrainer(
             do_generation=True,
@@ -171,25 +211,56 @@ def main():
             args=training_args,
             data_collator=QueryEvalCollator(
                 tokenizer,
-                padding='longest',
+                padding="longest",
             ),
         )
-        predict_results = trainer.predict(generate_dataset,
-                                          top_k=run_args.top_k,
-                                          num_return_sequences=run_args.num_return_sequences,
-                                          max_length=run_args.q_max_length)
-        with open(f"{run_args.valid_file}.q{run_args.num_return_sequences}.docTquery", 'w') as f:
-            for batch_tokens, batch_ids in tqdm(zip(predict_results.predictions, predict_results.label_ids),
-                                                desc="Writing file"):
+        predict_results = trainer.predict(
+            generate_dataset,
+            top_k=run_args.top_k,
+            num_return_sequences=run_args.num_return_sequences,
+            max_length=run_args.q_max_length,
+        )
+
+        if table_name != None:
+            df_db = generate_dataset.db_df
+            data = []
+
+            for batch_tokens, batch_ids in tqdm(
+                zip(predict_results.predictions, predict_results.label_ids),
+                desc="Processing",
+            ):
                 for tokens, docid in zip(batch_tokens, batch_ids):
                     query = fast_tokenizer.decode(tokens, skip_special_tokens=True)
-                    jitem = json.dumps({'text_id': docid.item(), 'text': query})
-                    f.write(jitem + '\n')
+                    data.append({"mid": docid.item(), "doctoquery": query})
+
+            df_pred = pd.DataFrame(data)
+
+            df_result = df_db.merge(df_pred, on="mid", how="left")
+
+            destination_table_name = (
+                f"{table_name}_d2q_q{run_args.num_return_sequences}"
+            )
+
+            write_db(df_result, destination_table_name)
+
+        else:
+            with open(
+                f"{run_args.valid_file}.q{run_args.num_return_sequences}.docTquery", "w"
+            ) as f:
+                for batch_tokens, batch_ids in tqdm(
+                    zip(predict_results.predictions, predict_results.label_ids),
+                    desc="Writing file",
+                ):
+                    for tokens, docid in zip(batch_tokens, batch_ids):
+                        query = fast_tokenizer.decode(tokens, skip_special_tokens=True)
+                        jitem = json.dumps({"text_id": docid.item(), "text": query})
+                        f.write(jitem + "\n")
 
     else:
-        raise NotImplementedError("--task should be in 'DSI' or 'docTquery' or 'generation'")
+        raise NotImplementedError(
+            "--task should be in 'DSI' or 'docTquery' or 'generation'"
+        )
 
 
 if __name__ == "__main__":
     main()
-
