@@ -72,9 +72,10 @@ class GenerateDataset(Dataset):
         max_length: int,
         cache_dir: str,
         tokenizer: PreTrainedTokenizer,
-        table_name: None | str = None,
+        table_name = None,
     ):
 
+        self.data = []
         if ".db" in path_to_data:
             if table_name == None:
                 raise NotImplementedError("No table name was given")
@@ -82,14 +83,15 @@ class GenerateDataset(Dataset):
                 df = load_db(table_name)
                 self.db_df = df
 
-                for row in df.iterrows():
+                for index, row in df.iterrows():
                     self.data.append(
+                        (
                         row["mid"],
-                        f"subject: {row["subject"]} body: {row["body_clean"]}",
+                        f"subject: {row['subject']} body: {row['body_clean']}",
+                        )
                     )
 
         else:
-            self.data = []
             with open(path_to_data, "r") as f:
                 for data in f:
                     if "xorqa" in path_to_data:

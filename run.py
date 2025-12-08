@@ -27,7 +27,7 @@ import json
 from tqdm import tqdm
 import pandas as pd
 
-from CE.utils.database import write_db
+from CE.utils.database import write_to_db
 
 set_seed(313)
 
@@ -45,7 +45,7 @@ class RunArguments:
     top_k: Optional[int] = field(default=10)
     num_return_sequences: Optional[int] = field(default=10)
     q_max_length: Optional[int] = field(default=32)
-    table_name: Optional[str] | Optional[None] = field(default=None)
+    table_name: Optional[str] = field(default=None)
 
 
 def make_compute_metrics(tokenizer, valid_ids):
@@ -241,7 +241,7 @@ def main():
                 f"{table_name}_d2q_q{run_args.num_return_sequences}"
             )
 
-            write_db(df_result, destination_table_name)
+            write_to_db(df_result, destination_table_name)
 
         else:
             with open(
