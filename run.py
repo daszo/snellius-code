@@ -34,6 +34,10 @@ from CE.utils.tries import generate_trie_dict
 
 from sklearn.model_selection import train_test_split
 
+import time
+import datetime
+from textwrap import dedent
+
 set_seed(313)
 
 
@@ -248,7 +252,7 @@ def main():
 
     elif run_args.task == "DSI":
 
-        run_semantic = False
+        run_semantic = True
 
         if table_name is not None and db_name is not None:
 
@@ -326,7 +330,29 @@ def main():
             restrict_decode_vocab=restrict_decode_vocab ,
             id_max_length=run_args.id_max_length,
         )
-        trainer.train()
+
+        start_time = time.time()
+        train_result = trainer.train()
+        end_time = time.time()
+
+        duration_seconds = end_time - start_time
+
+        td = datetime.timedelta(seconds=duration_seconds)
+
+        total_batches = train_result.global_step
+
+        metrics = train_result.metrics
+        final_epoch = metrics.get("epoch")
+
+        write= dedent(f"""
+        total_time = {td}
+        batches = {total_batches}
+        final_epoch = {final_epoch}
+        """)
+
+        with open(f"logs/{training_args.run_name}_{datetime.datetime.now()}.txt", 'w') as f:
+            f.write(write)
+
 
     elif run_args.task == "generation":
         generate_dataset = GenerateDataset(
