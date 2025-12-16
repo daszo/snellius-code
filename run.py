@@ -82,7 +82,7 @@ def make_compute_metrics(tokenizer, valid_ids):
             hits = np.where(np.array(filtered_rank_list)[:10] == label_id)[0]
             if len(hits) != 0:
                 hit_at_10 += 1
-                imf hits[0] == 0:
+                if hits[0] == 0:
                     hit_at_1 += 1
         return {
             "Hits@1": hit_at_1 / len(eval_preds.predictions),
