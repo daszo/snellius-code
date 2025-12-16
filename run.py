@@ -30,7 +30,7 @@ import pandas as pd
 
 from CE.utils.database import load_db, write_to_db
 
-from CE.utils.tries import generate_trie_dict
+from CE.tries import generate_trie_dict
 
 from sklearn.model_selection import train_test_split
 
