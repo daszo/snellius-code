@@ -30,6 +30,8 @@ import pandas as pd
 
 from CE.utils.database import load_db, write_to_db
 
+from CE.utils.tries import generate_trie_dict
+
 from sklearn.model_selection import train_test_split
 
 set_seed(313)
@@ -285,7 +287,7 @@ def main():
         # TODO: implement beam first search
         ################################################################
         # docid generation constrain, we only generate integer docids.
-        if run_semantic is False:
+        if run_semantic == False:
             SPIECE_UNDERLINE = "▁"
             INT_TOKEN_IDS = []
             for token, id in tokenizer.get_vocab().items():
@@ -300,11 +302,12 @@ def main():
 
             def restrict_decode_vocab(batch_idx, prefix_beam):
                 return INT_TOKEN_IDS
-        else:
-            # set to None for now, will calculate later.
-            restrict_decode_vocab = None
-
         ################################################################
+        else:
+            decoder_trie = generate_trie_dict(df, tokenizer)
+
+            def restrict_decode_vocab(self, batch_idx, prefix_beam):
+                return decoder_trie.get(prefix_beam.tolist())
 
         trainer = DSITrainer(
             model=model,
@@ -322,7 +325,6 @@ def main():
             ),
             restrict_decode_vocab=restrict_decode_vocab ,
             id_max_length=run_args.id_max_length,
-            df=df if run_semantic else None
         )
         trainer.train()
 

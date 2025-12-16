@@ -1,46 +1,105 @@
-class TrieNode:
-    def __init__(self):
-        self.children = {}
-        self.is_end_of_word = False
+from typing import List, Dict, Optional
+from pandas import DataFrame
+from tqdm import tqdm
 
 
-class DocIDTrie:
-    def __init__(self, tokenizer):
-        self.root = TrieNode()
-        self.tokenizer = tokenizer
-        self.pad_token_id = tokenizer.pad_token_id
-        self.eos_token_id = tokenizer.eos_token_id
+class Trie(object):
+    def __init__(self, sequences: List[List[int]] = []):
+        self.trie_dict = {}
+        self.len = 0
+        if sequences:
+            for sequence in sequences:
+                Trie._add_to_trie(sequence, self.trie_dict)
+                self.len += 1
 
-    def insert(self, token_ids: list):
-        """Inserts a sequence of token_ids (a doc_id) into the trie."""
-        node = self.root
-        for token in token_ids:
-            if token not in node.children:
-                node.children[token] = TrieNode()
-            node = node.children[token]
-        node.is_end_of_word = True
-        # Explicitly allow EOS at the end of a valid doc_id
-        if self.eos_token_id not in node.children:
-            node.children[self.eos_token_id] = TrieNode()
+        self.append_trie = None
+        self.bos_token_id = None
 
-    def get_next_allowed_tokens(self, current_sequence: list):
-        """
-        Traverses the trie based on current_sequence and returns
-        list of allowed next token_ids.
-        """
-        node = self.root
+    def append(self, trie, bos_token_id):
+        self.append_trie = trie
+        self.bos_token_id = bos_token_id
 
-        # Traverse the trie to the current state
-        for token in current_sequence:
-            # Skip pad tokens usually found at start of decoder sequences
-            if token == self.pad_token_id:
-                continue
+    def add(self, sequence: List[int]):
+        Trie._add_to_trie(sequence, self.trie_dict)
+        self.len += 1
 
-            if token in node.children:
-                node = node.children[token]
+    def get(self, prefix_sequence: List[int]):
+
+        return Trie._get_from_trie(
+            prefix_sequence, self.trie_dict, self.append_trie, self.bos_token_id
+        )
+
+    @staticmethod
+    def load_from_dict(trie_dict):
+        trie = Trie()
+        trie.trie_dict = trie_dict
+        trie.len = sum(1 for _ in trie)
+        return trie
+
+    @staticmethod
+    def _add_to_trie(sequence: List[int], trie_dict: Dict):
+        if sequence:
+            if sequence[0] not in trie_dict:
+                trie_dict[sequence[0]] = {}
+            Trie._add_to_trie(sequence[1:], trie_dict[sequence[0]])
+
+    @staticmethod
+    def _get_from_trie(
+        prefix_sequence: List[int],
+        trie_dict: Dict,
+        append_trie=None,
+        bos_token_id: Optional[int] = None,
+    ):
+        if len(prefix_sequence) == 0:
+            output = list(trie_dict.keys())
+            if append_trie and bos_token_id in output:
+                output.remove(bos_token_id)
+                output += list(append_trie.trie_dict.keys())
+            return output
+        elif prefix_sequence[0] in trie_dict:
+            return Trie._get_from_trie(
+                prefix_sequence[1:],
+                trie_dict[prefix_sequence[0]],
+                append_trie,
+                bos_token_id,
+            )
+        else:
+            if append_trie:
+                return append_trie.get(prefix_sequence)
             else:
-                # If we wandered off the trie (shouldn't happen with forced decoding),
-                # we force EOS or return empty list to stop generation.
-                return [self.eos_token_id]
+                return []
 
-        return list(node.children.keys())
+    def __iter__(self):
+        def _traverse(prefix_sequence, trie_dict):
+            if trie_dict:
+                for next_token in trie_dict:
+                    yield from _traverse(
+                        prefix_sequence + [next_token], trie_dict[next_token]
+                    )
+            else:
+                yield prefix_sequence
+
+        return _traverse([], self.trie_dict)
+
+    def __len__(self):
+        return self.len
+
+    def __getitem__(self, value):
+        return self.get(value)
+
+
+def generate_trie_dict(
+    df: DataFrame, tokenizer, doc_id_table: str = "elaborative_description"
+):
+
+    email_names = df[doc_id_table].to_list()
+
+    title_sequence = []
+    for page_title in tqdm(email_names):
+        input_ids = tokenizer.encode(
+            page_title.strip(), add_special_tokens=True, max_length=64, truncation=True
+        )
+        title_sequence.append([0] + input_ids)
+
+    decoder_trie = Trie(title_sequence)
+    return decoder_trie

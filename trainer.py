@@ -3,54 +3,15 @@ from transformers.trainer import Trainer
 from torch import nn
 from torch.utils.data import Dataset
 import torch
-from CE.utils.tries import DocIDTrie
 
 
 class DSITrainer(Trainer):
-    def __init__(
-        self, run_semantic, id_max_length, restrict_decode_vocab=None, df=None, **kwds
-    ):
+    def __init__(self, run_semantic, id_max_length, restrict_decode_vocab, **kwds):
         super().__init__(**kwds)
         self.run_seantic = run_semantic
         self.id_max_length = id_max_length
 
-        if df:
-            # --- IMPLEMENTATION OF TRIE ---
-            # We build the Trie once during initialization
-            print("Building Prefix Tree (Trie) from doc_ids...")
-            self.trie = DocIDTrie(self.tokenizer)
-
-            # Assuming df['doc_ids'] contains lists of token IDs.
-            # If it contains strings, you must encode them first.
-            for doc_id_seq in df["doc_ids"]:
-                self.trie.insert(doc_id_seq)
-            print("Trie built successfully.")
-
-            def restrict_decode_vocab_fn(self, batch_idx, prefix_beam):
-                """
-                This function is called by model.generate at every step of beam search.
-                Arguments:
-                    batch_idx: The index of the batch (not used here, but required by HF signature)
-                    prefix_beam: The tensor containing the sequence generated SO FAR.
-                Returns:
-                    List of token_ids allowed to be generated next.
-                """
-                # Convert tensor to list
-                current_sequence = prefix_beam.tolist()
-
-                # Get allowed tokens from the Trie
-                allowed_tokens = self.trie.get_next_allowed_tokens(current_sequence)
-
-                # If no tokens are returned (dead end), force EOS
-                if not allowed_tokens:
-                    return [self.tokenizer.eos_token_id]
-
-                return allowed_tokens
-
-            self.restrict_decode_vocab = restrict_decode_vocab_fn
-
-        else:
-            self.restrict_decode_vocab = restrict_decode_vocab
+        self.restrict_decode_vocab = restrict_decode_vocab
 
     def compute_loss(self, model, inputs, return_outputs=False):
         loss = model(
