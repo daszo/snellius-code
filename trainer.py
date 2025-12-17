@@ -44,7 +44,7 @@ class DSITrainer(Trainer):
             # Beam search
             batch_beams = model.generate(
                 inputs["input_ids"].to(self.args.device),
-                max_length=20,
+                max_length=self.id_max_length,
                 num_beams=20,
                 prefix_allowed_tokens_fn=self.restrict_decode_vocab,
                 num_return_sequences=20,
