@@ -119,9 +119,9 @@ def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
         df['token_count'] = df['text'].apply(count_t5_tokens)
 
         # 4. Find the longest sentence
-        longest_idx = df['token_count'].idxmax()
+        longest_count = df['token_count'].max()
 
-        run_args.id_max_length = longest_idx
+        run_args.id_max_length = longest_count
 
     train_size = run_args.train_size
     validate_size = run_args.validate_size
