@@ -171,7 +171,7 @@ def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
                 base_dict = row.to_dict()
 
                 # Iterate through the 4 options to create 4 distinct entries
-                for option in [collumn_names]:
+                for option in collumn_names:
                     # Copy the dictionary to avoid overwriting previous iterations
                     item_dict = base_dict.copy()
                     
