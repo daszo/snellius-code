@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 export PYTHONPATH=$PYTHONPATH:$(pwd)/.venv/lib/python3.9/site-packages
-/gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun --nproc_per_node=1 run.py \
+PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun --nproc_per_node=1 run.py \
         --task "DSI" \
         --model_name "./local_models/google/mt5-base" \
         --run_name "enron-10k-mt5-base-DSI-Q-classic" \
@@ -25,6 +25,6 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)/.venv/lib/python3.9/site-packages
         --metric_for_best_model Hits@10 \
         --greater_is_better True \
         --remove_prompt True \
-	--db_name "enron.db" \
-       	--table_name "N10k_text_rank_and_subject" 2>&1 | tee training_log.txt
+	--db_name "data/enron.db" \
+       	--table_name "N10k_text_rank_d2q_q1" 2>&1 | tee training_log.txt
 	

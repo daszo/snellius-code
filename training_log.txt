@@ -1,11 +1,10 @@
 wandb: Currently logged in as: daszo (daszo-university-of-amsterdam) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
-wandb: setting up run 4f4ubay9
 wandb: Tracking run with wandb version 0.23.1
-wandb: Run data is saved locally in /gpfs/work5/0/prjs1828/DSI-QG/wandb/run-20251216_210506-4f4ubay9
+wandb: Run data is saved locally in /gpfs/work5/0/prjs1828/DSI-QG/wandb/run-20251217_120608-gymerjos
 wandb: Run `wandb offline` to turn off syncing.
 wandb: Syncing run enron-10k-mt5-base-DSI-Q-classic
 wandb: ⭐️ View project at https://wandb.ai/daszo-university-of-amsterdam/DSI
-wandb: 🚀 View run at https://wandb.ai/daszo-university-of-amsterdam/DSI/runs/4f4ubay9
+wandb: 🚀 View run at https://wandb.ai/daszo-university-of-amsterdam/DSI/runs/gymerjos
 The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
 The tokenizer class you load from this checkpoint is 'MT5Tokenizer'. 
 The class this function is called from is 'T5Tokenizer'.
@@ -15,72 +14,122 @@ The class this function is called from is 'T5Tokenizer'.
 The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
 The tokenizer class you load from this checkpoint is 'MT5Tokenizer'. 
 The class this function is called from is 'T5TokenizerFast'.
-/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/transformers/convert_slow_tokenizer.py:434: UserWarning: The sentencepiece tokenizer that you are converting to a fast tokenizer uses the byte fallback option which is not implemented in the fast tokenizers. In practice this means that the fast version of the tokenizer can produce unknown tokens whereas the sentencepiece version would have converted these unknown tokens into a sequence of byte tokens matching the original piece of text.
+/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/transformers/convert_slow_tokenizer.py:434: UserWarning: The sentencepiece tokenizer that you are converting to a fast tokenizer uses the byte fallback option which is not implemented in the fast tokenizers. In practice this means that the fast version of the tokenizer can produce unknown tokens whereas the sentencepiece version would have converted these unknown tokens into a sequence of byte tokens matching the original piece of text.
   warnings.warn(
-Started, Loading DB enron.db
-Finished, Loading Dataframe of size Index(['97795', 'subject: mid\n97795              Dual Auction Restructuring\n471272    Re: Guggenheim/Enron Event May 24th\n229132                               Fwd: Fw:\n47533                 Delano Energy Departure\n75959          Enron Direct Canada-First Deal\n                         ...                 \n403540          London - Week of January 15th\n145616                     RE: whoa big fella\n453127               Re: LM6000 Change Orders\n364375                     A.Word.A.Day--avid\n108849                         Thursday fixed\nName: subject, Length: 10000, dtype: object body: mid\n97795     Jerry, First off I would like to again commend...\n471272    planning on going.  which night are you inviti...\n229132    ----- Forwarded by Dan J Hyvl/HOU/ECT on 10/30...\n47533     Group, Just wanted to let you know that as of ...\n75959     Go go go....!! Show us how the retail/wholesal...\n                                ...                        \n403540    I plan to work out of the London office during...\n145616    I need to get paid out for this years efforts ...\n453127    Chris, I would think that we would want to des...\n364375    avid (avid) adjective 1. Having an ardent desi...\n108849    ---------------------- Forwarded by Darrell Sc...\nName: body_clean, Length: 10000, dtype: object'], dtype='object')
-Traceback (most recent call last):
-  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 3812, in get_loc
-    return self._engine.get_loc(casted_key)
-  File "pandas/_libs/index.pyx", line 167, in pandas._libs.index.IndexEngine.get_loc
-  File "pandas/_libs/index.pyx", line 196, in pandas._libs.index.IndexEngine.get_loc
-  File "pandas/_libs/hashtable_class_helper.pxi", line 7088, in pandas._libs.hashtable.PyObjectHashTable.get_item
-  File "pandas/_libs/hashtable_class_helper.pxi", line 7096, in pandas._libs.hashtable.PyObjectHashTable.get_item
-KeyError: 'elaborative_description'
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
+Started, Loading DB data/enron.db
+Finished, Loading Dataframe of size Index(['sender', 'eid', 'date', 'message_id', 'subject', 'body', 'folder',
+       'length_character', 'length_word', 'body_clean',
+       'clean_length_character', 'clean_length_word', 'similarities',
+       'text_rank_query', 'elaborative_description', 'body_clean_and_subject',
+       'mid', 'doctoquery'],
+      dtype='object')
+Writing DataFrame to data/train.N10k_text_rank_d2q_q1.docTquery...
+Writing file:   0%|          | 0/10000 [00:00<?, ?it/s]Writing file:  10%|█         | 1038/10000 [00:00<00:00, 10355.74it/s]Writing file:  21%|██        | 2102/10000 [00:00<00:00, 10515.21it/s]Writing file:  32%|███▏      | 3154/10000 [00:00<00:00, 10506.33it/s]Writing file:  43%|████▎     | 4251/10000 [00:00<00:00, 10685.66it/s]Writing file:  54%|█████▎    | 5361/10000 [00:00<00:00, 10832.50it/s]Writing file:  64%|██████▍   | 6445/10000 [00:00<00:00, 10512.75it/s]Writing file:  75%|███████▌  | 7543/10000 [00:00<00:00, 10660.27it/s]Writing file:  80%|████████  | 8000/10000 [00:00<00:00, 10636.20it/s]
+Writing DataFrame to data/validate.N10k_text_rank_d2q_q1.docTquery...
+Writing file:   0%|          | 0/10000 [00:00<?, ?it/s]Writing file:  10%|█         | 1000/10000 [00:00<00:00, 10659.32it/s]
+Writing DataFrame to data/test.N10k_text_rank_d2q_q1.docTquery...
+Writing file:   0%|          | 0/10000 [00:00<?, ?it/s]Writing file:  10%|█         | 1000/10000 [00:00<00:00, 10711.53it/s]
+File writing complete.
+Using custom data configuration default-9cc1c30a09b6edf3
+Downloading and preparing dataset json/default to cache/json/default-9cc1c30a09b6edf3/0.0.0/ac0ca5f5289a6cf108e706efcf040422dbbfa8e658dee6a819f20d76bb84d26b...
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 3066.01it/s]
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 80.48it/s]
+Dataset json downloaded and prepared to cache/json/default-9cc1c30a09b6edf3/0.0.0/ac0ca5f5289a6cf108e706efcf040422dbbfa8e658dee6a819f20d76bb84d26b. Subsequent calls will reuse this data.
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 119.18it/s]
+  0%|          | 0/8000 [00:00<?, ?it/s]  9%|▉         | 717/8000 [00:00<00:01, 7169.63it/s] 18%|█▊        | 1434/8000 [00:00<00:00, 7116.31it/s] 27%|██▋       | 2146/8000 [00:00<00:00, 7030.99it/s] 36%|███▌      | 2850/8000 [00:00<00:00, 6998.54it/s] 44%|████▍     | 3550/8000 [00:00<00:00, 6943.72it/s] 53%|█████▎    | 4245/8000 [00:00<00:00, 6896.22it/s] 62%|██████▏   | 4935/8000 [00:00<00:00, 6877.97it/s] 70%|███████   | 5631/8000 [00:00<00:00, 6902.09it/s] 79%|███████▉  | 6322/8000 [00:00<00:00, 6849.70it/s] 88%|████████▊ | 7018/8000 [00:01<00:00, 6882.11it/s] 96%|█████████▋| 7718/8000 [00:01<00:00, 6915.22it/s]100%|██████████| 8000/8000 [00:01<00:00, 6927.49it/s]
+Using custom data configuration default-6b3a6c2e4d682c4a
+Downloading and preparing dataset json/default to cache/json/default-6b3a6c2e4d682c4a/0.0.0/ac0ca5f5289a6cf108e706efcf040422dbbfa8e658dee6a819f20d76bb84d26b...
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 3167.90it/s]
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 233.68it/s]
+Dataset json downloaded and prepared to cache/json/default-6b3a6c2e4d682c4a/0.0.0/ac0ca5f5289a6cf108e706efcf040422dbbfa8e658dee6a819f20d76bb84d26b. Subsequent calls will reuse this data.
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 385.83it/s]
+  0%|          | 0/1000 [00:00<?, ?it/s] 71%|███████▏  | 713/1000 [00:00<00:00, 7124.77it/s]100%|██████████| 1000/1000 [00:00<00:00, 7093.56it/s]
+  0%|          | 0/10000 [00:00<?, ?it/s]  8%|▊         | 824/10000 [00:00<00:01, 8235.94it/s] 17%|█▋        | 1674/10000 [00:00<00:00, 8387.43it/s] 26%|██▌       | 2553/10000 [00:00<00:00, 8567.75it/s] 34%|███▍      | 3421/10000 [00:00<00:00, 8608.68it/s] 43%|████▎     | 4298/10000 [00:00<00:00, 8665.71it/s] 52%|█████▏    | 5171/10000 [00:00<00:00, 8684.50it/s] 60%|██████    | 6041/10000 [00:00<00:00, 8688.79it/s] 69%|██████▉   | 6916/10000 [00:00<00:00, 8707.11it/s] 78%|███████▊  | 7787/10000 [00:00<00:00, 8707.40it/s] 87%|████████▋ | 8666/10000 [00:01<00:00, 8730.94it/s] 95%|█████████▌| 9540/10000 [00:01<00:00, 8721.11it/s]100%|██████████| 10000/10000 [00:01<00:00, 8662.85it/s]
+max_steps is given, it will override any value given in num_train_epochs
+/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/transformers/optimization.py:306: FutureWarning: This implementation of AdamW is deprecated and will be removed in a future version. Use the PyTorch implementation torch.optim.AdamW instead, or set `no_deprecation_warning=True` to disable this warning
+  warnings.warn(
+***** Running training *****
+  Num examples = 8000
+  Num Epochs = 4000
+  Instantaneous batch size per device = 32
+  Total train batch size (w. parallel, distributed & accumulation) = 32
+  Gradient Accumulation steps = 1
+  Total optimization steps = 1000000
+Automatic Weights & Biases logging enabled, to disable set os.environ["WANDB_DISABLED"] = "true"
+  0%|          | 0/1000000 [00:00<?, ?it/s]Traceback (most recent call last):
   File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 425, in <module>
     main()
-  File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 259, in main
-    file_names, run_semantic, df = split_train_validate_test(run_args)
-  File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 107, in split_train_validate_test
-    semantic_ids = df['elaborative_description'].map(type).eq(str).all()
-  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/pandas/core/frame.py", line 4113, in __getitem__
-    indexer = self.columns.get_loc(key)
-  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 3819, in get_loc
-    raise KeyError(key) from err
-KeyError: 'elaborative_description'
-[rank0]: Traceback (most recent call last):
-[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 3812, in get_loc
-[rank0]:     return self._engine.get_loc(casted_key)
-[rank0]:   File "pandas/_libs/index.pyx", line 167, in pandas._libs.index.IndexEngine.get_loc
-[rank0]:   File "pandas/_libs/index.pyx", line 196, in pandas._libs.index.IndexEngine.get_loc
-[rank0]:   File "pandas/_libs/hashtable_class_helper.pxi", line 7088, in pandas._libs.hashtable.PyObjectHashTable.get_item
-[rank0]:   File "pandas/_libs/hashtable_class_helper.pxi", line 7096, in pandas._libs.hashtable.PyObjectHashTable.get_item
-[rank0]: KeyError: 'elaborative_description'
-
-[rank0]: The above exception was the direct cause of the following exception:
+  File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 335, in main
+    train_result = trainer.train()
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/transformers/trainer.py", line 1498, in train
+    return inner_training_loop(
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/transformers/trainer.py", line 1714, in _inner_training_loop
+    for step, inputs in enumerate(epoch_iterator):
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 708, in __next__
+    data = self._next_data()
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 1480, in _next_data
+    return self._process_data(data)
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 1505, in _process_data
+    data.reraise()
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/_utils.py", line 733, in reraise
+    raise exception
+KeyError: Caught KeyError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/utils/data/_utils/worker.py", line 349, in _worker_loop
+    data = fetcher.fetch(index)  # type: ignore[possibly-undefined]
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 52, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 52, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/gpfs/work5/0/prjs1828/DSI-QG/data.py", line 50, in __getitem__
+    data["text"],
+KeyError: 'text'
 
 [rank0]: Traceback (most recent call last):
 [rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 425, in <module>
 [rank0]:     main()
-[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 259, in main
-[rank0]:     file_names, run_semantic, df = split_train_validate_test(run_args)
-[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 107, in split_train_validate_test
-[rank0]:     semantic_ids = df['elaborative_description'].map(type).eq(str).all()
-[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/pandas/core/frame.py", line 4113, in __getitem__
-[rank0]:     indexer = self.columns.get_loc(key)
-[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 3819, in get_loc
-[rank0]:     raise KeyError(key) from err
-[rank0]: KeyError: 'elaborative_description'
+[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 335, in main
+[rank0]:     train_result = trainer.train()
+[rank0]:   File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/transformers/trainer.py", line 1498, in train
+[rank0]:     return inner_training_loop(
+[rank0]:   File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/transformers/trainer.py", line 1714, in _inner_training_loop
+[rank0]:     for step, inputs in enumerate(epoch_iterator):
+[rank0]:   File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 708, in __next__
+[rank0]:     data = self._next_data()
+[rank0]:   File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 1480, in _next_data
+[rank0]:     return self._process_data(data)
+[rank0]:   File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/utils/data/dataloader.py", line 1505, in _process_data
+[rank0]:     data.reraise()
+[rank0]:   File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/_utils.py", line 733, in reraise
+[rank0]:     raise exception
+[rank0]: KeyError: Caught KeyError in DataLoader worker process 0.
+[rank0]: Original Traceback (most recent call last):
+[rank0]:   File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/utils/data/_utils/worker.py", line 349, in _worker_loop
+[rank0]:     data = fetcher.fetch(index)  # type: ignore[possibly-undefined]
+[rank0]:   File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 52, in fetch
+[rank0]:     data = [self.dataset[idx] for idx in possibly_batched_index]
+[rank0]:   File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/utils/data/_utils/fetch.py", line 52, in <listcomp>
+[rank0]:     data = [self.dataset[idx] for idx in possibly_batched_index]
+[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/data.py", line 50, in __getitem__
+[rank0]:     data["text"],
+[rank0]: KeyError: 'text'
+
 [1;34mwandb[0m: 
 [1;34mwandb[0m: 🚀 View run [33menron-10k-mt5-base-DSI-Q-classic[0m at: [34m[0m
-[1;34mwandb[0m: Find logs at: [1;35mwandb/run-20251216_210506-4f4ubay9/logs[0m
-E1216 21:05:16.179183 3364198 .venv/lib/python3.9/site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 0 (pid: 3364286) of binary: /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python
+[1;34mwandb[0m: Find logs at: [1;35m../../../gpfs/work5/0/prjs1828/DSI-QG/wandb/run-20251217_120608-gymerjos/logs[0m
+E1217 12:06:29.655491 2310731 .venv/lib/python3.9/site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 0 (pid: 2310751) of binary: /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python
 Traceback (most recent call last):
   File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun", line 7, in <module>
     sys.exit(main())
-  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
     return f(*args, **kwargs)
-  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/run.py", line 918, in main
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/run.py", line 918, in main
     run(args)
-  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/run.py", line 909, in run
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/run.py", line 909, in run
     elastic_launch(
-  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
     return launch_agent(self._config, self._entrypoint, list(args))
-  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+  File "/projects/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
     raise ChildFailedError(
 torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
 ============================================================
@@ -91,10 +140,10 @@ Failures:
 ------------------------------------------------------------
 Root Cause (first observed failure):
 [0]:
-  time      : 2025-12-16_21:05:16
-  host      : gcn13.local.snellius.surf.nl
+  time      : 2025-12-17_12:06:29
+  host      : gcn64.local.snellius.surf.nl
   rank      : 0 (local_rank: 0)
-  exitcode  : 1 (pid: 3364286)
+  exitcode  : 1 (pid: 2310751)
   error_file: <N/A>
   traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
 ============================================================
