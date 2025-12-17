@@ -104,7 +104,7 @@ def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
 
     df = load_db(run_args.table_name, run_args.db_name)
 
-    semantic_ids = df['B'].map(type).eq(str).all()
+    semantic_ids = df['elaborative_description'].map(type).eq(str).all()
     if semantic_ids is True:    
         # 1. Load the T5-base tokenizer
         # T5 uses a SentencePiece-based tokenizer

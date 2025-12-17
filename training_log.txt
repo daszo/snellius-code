@@ -1,0 +1,100 @@
+wandb: Currently logged in as: daszo (daszo-university-of-amsterdam) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run 4f4ubay9
+wandb: Tracking run with wandb version 0.23.1
+wandb: Run data is saved locally in /gpfs/work5/0/prjs1828/DSI-QG/wandb/run-20251216_210506-4f4ubay9
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run enron-10k-mt5-base-DSI-Q-classic
+wandb: ⭐️ View project at https://wandb.ai/daszo-university-of-amsterdam/DSI
+wandb: 🚀 View run at https://wandb.ai/daszo-university-of-amsterdam/DSI/runs/4f4ubay9
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'MT5Tokenizer'. 
+The class this function is called from is 'T5Tokenizer'.
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'MT5Tokenizer'. 
+The class this function is called from is 'T5Tokenizer'.
+The tokenizer class you load from this checkpoint is not the same type as the class this function is called from. It may result in unexpected tokenization. 
+The tokenizer class you load from this checkpoint is 'MT5Tokenizer'. 
+The class this function is called from is 'T5TokenizerFast'.
+/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/transformers/convert_slow_tokenizer.py:434: UserWarning: The sentencepiece tokenizer that you are converting to a fast tokenizer uses the byte fallback option which is not implemented in the fast tokenizers. In practice this means that the fast version of the tokenizer can produce unknown tokens whereas the sentencepiece version would have converted these unknown tokens into a sequence of byte tokens matching the original piece of text.
+  warnings.warn(
+Started, Loading DB enron.db
+Finished, Loading Dataframe of size Index(['97795', 'subject: mid\n97795              Dual Auction Restructuring\n471272    Re: Guggenheim/Enron Event May 24th\n229132                               Fwd: Fw:\n47533                 Delano Energy Departure\n75959          Enron Direct Canada-First Deal\n                         ...                 \n403540          London - Week of January 15th\n145616                     RE: whoa big fella\n453127               Re: LM6000 Change Orders\n364375                     A.Word.A.Day--avid\n108849                         Thursday fixed\nName: subject, Length: 10000, dtype: object body: mid\n97795     Jerry, First off I would like to again commend...\n471272    planning on going.  which night are you inviti...\n229132    ----- Forwarded by Dan J Hyvl/HOU/ECT on 10/30...\n47533     Group, Just wanted to let you know that as of ...\n75959     Go go go....!! Show us how the retail/wholesal...\n                                ...                        \n403540    I plan to work out of the London office during...\n145616    I need to get paid out for this years efforts ...\n453127    Chris, I would think that we would want to des...\n364375    avid (avid) adjective 1. Having an ardent desi...\n108849    ---------------------- Forwarded by Darrell Sc...\nName: body_clean, Length: 10000, dtype: object'], dtype='object')
+Traceback (most recent call last):
+  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 3812, in get_loc
+    return self._engine.get_loc(casted_key)
+  File "pandas/_libs/index.pyx", line 167, in pandas._libs.index.IndexEngine.get_loc
+  File "pandas/_libs/index.pyx", line 196, in pandas._libs.index.IndexEngine.get_loc
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7088, in pandas._libs.hashtable.PyObjectHashTable.get_item
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7096, in pandas._libs.hashtable.PyObjectHashTable.get_item
+KeyError: 'elaborative_description'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 425, in <module>
+    main()
+  File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 259, in main
+    file_names, run_semantic, df = split_train_validate_test(run_args)
+  File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 107, in split_train_validate_test
+    semantic_ids = df['elaborative_description'].map(type).eq(str).all()
+  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/pandas/core/frame.py", line 4113, in __getitem__
+    indexer = self.columns.get_loc(key)
+  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 3819, in get_loc
+    raise KeyError(key) from err
+KeyError: 'elaborative_description'
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 3812, in get_loc
+[rank0]:     return self._engine.get_loc(casted_key)
+[rank0]:   File "pandas/_libs/index.pyx", line 167, in pandas._libs.index.IndexEngine.get_loc
+[rank0]:   File "pandas/_libs/index.pyx", line 196, in pandas._libs.index.IndexEngine.get_loc
+[rank0]:   File "pandas/_libs/hashtable_class_helper.pxi", line 7088, in pandas._libs.hashtable.PyObjectHashTable.get_item
+[rank0]:   File "pandas/_libs/hashtable_class_helper.pxi", line 7096, in pandas._libs.hashtable.PyObjectHashTable.get_item
+[rank0]: KeyError: 'elaborative_description'
+
+[rank0]: The above exception was the direct cause of the following exception:
+
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 425, in <module>
+[rank0]:     main()
+[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 259, in main
+[rank0]:     file_names, run_semantic, df = split_train_validate_test(run_args)
+[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/run.py", line 107, in split_train_validate_test
+[rank0]:     semantic_ids = df['elaborative_description'].map(type).eq(str).all()
+[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/pandas/core/frame.py", line 4113, in __getitem__
+[rank0]:     indexer = self.columns.get_loc(key)
+[rank0]:   File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 3819, in get_loc
+[rank0]:     raise KeyError(key) from err
+[rank0]: KeyError: 'elaborative_description'
+[1;34mwandb[0m: 
+[1;34mwandb[0m: 🚀 View run [33menron-10k-mt5-base-DSI-Q-classic[0m at: [34m[0m
+[1;34mwandb[0m: Find logs at: [1;35mwandb/run-20251216_210506-4f4ubay9/logs[0m
+E1216 21:05:16.179183 3364198 .venv/lib/python3.9/site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 0 (pid: 3364286) of binary: /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python
+Traceback (most recent call last):
+  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun", line 7, in <module>
+    sys.exit(main())
+  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/run.py", line 918, in main
+    run(args)
+  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/run.py", line 909, in run
+    elastic_launch(
+  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/gpfs/work5/0/prjs1828/DSI-QG/.venv/lib/python3.9/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+run.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2025-12-16_21:05:16
+  host      : gcn13.local.snellius.surf.nl
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 3364286)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

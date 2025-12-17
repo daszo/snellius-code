@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-python3 -m torch.distributed.launch --nproc_per_node=8 run.py \
+export PYTHONPATH=$PYTHONPATH:$(pwd)/.venv/lib/python3.9/site-packages
+/gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun --nproc_per_node=1 run.py \
         --task "DSI" \
-        --model_name "google/mt5-base" \
+        --model_name "./local_models/google/mt5-base" \
         --run_name "enron-10k-mt5-base-DSI-Q-classic" \
         --max_length 32 \
         --output_dir "models/enron-10k-mt5-base-DSI-Q-classic" \
@@ -24,4 +25,6 @@ python3 -m torch.distributed.launch --nproc_per_node=8 run.py \
         --metric_for_best_model Hits@10 \
         --greater_is_better True \
         --remove_prompt True \
-	--db_name = "enron.db"
+	--db_name "enron.db" \
+       	--table_name "N10k_text_rank_and_subject" 2>&1 | tee training_log.txt
+	
