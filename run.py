@@ -323,7 +323,7 @@ def main():
         else:
             decoder_trie = generate_trie_dict(df, tokenizer)
 
-            def restrict_decode_vocab(self, batch_idx, prefix_beam):
+            def restrict_decode_vocab(batch_idx, prefix_beam):
                 return decoder_trie.get(prefix_beam.tolist())
 
         trainer = DSITrainer(
