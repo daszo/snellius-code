@@ -144,12 +144,18 @@ def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
         random_state =42
     )
 
+    collumn_names = [
+        "body_clean_and_subject",
+        "text_rank_query",
+        "doctoquery"
+    ]
+
     file_names = {}
 
     for name, target_df in [("train", df_train),
                             ("validate", df_validate),
                             ("test", df_test)
-                        ]:
+                            ]:
 
         output_filename = f"data/{name}.{table_name}.docTquery"
 
@@ -160,20 +166,23 @@ def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
         with open(output_filename, "w") as f:
             # Iterate over the rows of the DataFrame
             for _, row in tqdm(
-                target_df.iterrows(), total=len(df), desc="Writing file"
+                target_df.iterrows(), total=len(target_df), desc="Writing file"
             ):
-                # row.to_json() serializes the Series (row) to a JSON string.
-                # It's important to set 'orient="columns"' to get a simple key:value object
-                # without an extra index key, but row.to_dict() is often simpler.
-                
-                # Convert the row (which is a Series) to a dictionary
-                row_dict = row.to_dict()
-                
-                # Dump the dictionary to a JSON string
-                jitem = json.dumps(row_dict)
-                
-                # Write the JSON string followed by a newline
-                f.write(jitem + "\n")
+                base_dict = row.to_dict()
+
+                # Iterate through the 4 options to create 4 distinct entries
+                for option in [collumn_names]:
+                    # Copy the dictionary to avoid overwriting previous iterations
+                    item_dict = base_dict.copy()
+                    
+                    # Create the 'text' column by combining description and the specific option
+                    item_dict['text'] = f"{item_dict['elaborative_description']} {item_dict[option]}"
+                    
+                    # Dump the dictionary to a JSON string
+                    jitem = json.dumps(item_dict)
+
+                    # Write the JSON string followed by a newline
+                    f.write(jitem + "\n")
 
     print("File writing complete.")
 
