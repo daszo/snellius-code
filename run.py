@@ -170,13 +170,17 @@ def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
             ):
                 base_dict = row.to_dict()
 
+
                 # Iterate through the 4 options to create 4 distinct entries
                 for option in collumn_names:
                     # Copy the dictionary to avoid overwriting previous iterations
                     item_dict = base_dict.copy()
+
+                    text_id = str(item_dict['elaborative_description'])
                     
                     # Create the 'text' column by combining description and the specific option
-                    item_dict['text'] = f"{item_dict['elaborative_description']} {item_dict[option]}"
+                    item_dict['text'] = f"{item_dict[option]}"
+                    item_dict['text_id'] = text_id
                     
                     # Dump the dictionary to a JSON string
                     jitem = json.dumps(item_dict)
@@ -389,7 +393,7 @@ def main():
             max_length=run_args.q_max_length,
         )
 
-        if table_name != None:
+        if table_name is not None:
             df_db = generate_dataset.db_df
             data = []
 
