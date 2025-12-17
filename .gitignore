@@ -132,3 +132,5 @@ dmypy.json
 .pyre/
 
 local_models/
+cache/
+wandb/
