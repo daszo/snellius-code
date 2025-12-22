@@ -22,6 +22,7 @@ import numpy as np
 import torch
 import wandb
 from torch.utils.data import DataLoader
+import torch.distributed as dist
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Tuple
 import json
@@ -159,33 +160,35 @@ def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
 
         output_filename = f"data/{name}.{table_name}.docTquery"
         file_names[name] = output_filename
+        if run_args.local_rank == 0:
+            print(f"Writing DataFrame to {output_filename}...")
 
-        print(f"Writing DataFrame to {output_filename}...")
-
-        with open(output_filename, "w") as f:
-            # Iterate over the rows of the DataFrame
-            for _, row in tqdm(
-                target_df.iterrows(), total=len(target_df), desc="Writing file"
-            ):
-                base_dict = row.to_dict()
+            with open(output_filename, "w") as f:
+                # Iterate over the rows of the DataFrame
+                for _, row in tqdm(
+                    target_df.iterrows(), total=len(target_df), desc="Writing file"
+                ):
+                    base_dict = row.to_dict()
 
 
-                # Iterate through the 4 options to create 4 distinct entries
-                for option in collumn_names:
-                    # Copy the dictionary to avoid overwriting previous iterations
-                    item_dict = base_dict.copy()
+                    # Iterate through the 4 options to create 4 distinct entries
+                    for option in collumn_names:
+                        # Copy the dictionary to avoid overwriting previous iterations
+                        item_dict = base_dict.copy()
 
-                    text_id = str(item_dict['elaborative_description'])
-                    
-                    # Create the 'text' column by combining description and the specific option
-                    item_dict['text'] = f"{item_dict[option]}"
-                    item_dict['text_id'] = text_id
-                    
-                    # Dump the dictionary to a JSON string
-                    jitem = json.dumps(item_dict)
+                        text_id = str(item_dict['elaborative_description'])
+                        
+                        # Create the 'text' column by combining description and the specific option
+                        item_dict['text'] = f"{item_dict[option]}"
+                        item_dict['text_id'] = text_id
+                        
+                        # Dump the dictionary to a JSON string
+                        jitem = json.dumps(item_dict)
 
-                    # Write the JSON string followed by a newline
-                    f.write(jitem + "\n")
+                        # Write the JSON string followed by a newline
+                        f.write(jitem + "\n")
+    if dist.is_initialized():
+        dist.barrier()
 
     print("File writing complete.")
 
