@@ -3,7 +3,7 @@
 #SBATCH -p gpu_a100
 #SBATCH -N 1
 #SBATCH -G 2
-#SBATCH -t 24:00:00
+#SBATCH -t 30:00:00
 #SBATCH --mail-type=BEGIN,END
 #SBATCH --mail-user=daniel.van.oosteroom@student.uva.nl
 #SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/%j_training.log
@@ -58,3 +58,5 @@ torchrun --nproc_per_node=2 run.py \
         --remove_prompt True \
         --db_name "$TMPDIR/enron.db" \
 	--table_name "N10k_text_rank_d2q_q1"
+
+###BATCH --qos=short

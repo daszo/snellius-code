@@ -28,6 +28,7 @@ from typing import Optional, Dict, Tuple
 import json
 from tqdm import tqdm
 import pandas as pd
+import os
 
 from CE.utils.database import load_db, write_to_db
 
@@ -100,7 +101,18 @@ class SplitArgs:
     query_type: str = "mixed"
     split_by: str = "query" # "email"
 
-def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
+def verify_distributed_setup():
+    if dist.is_initialized():
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+        local_rank = os.environ.get("LOCAL_RANK", "N/A")
+        gpu_name = torch.cuda.get_device_name(torch.cuda.current_device())
+                                                    
+        print(f"--- [Rank {rank}/{world_size}] Local Rank: {local_rank} | Device: {gpu_name} ---")
+    else:
+        print("Distributed environment not initialized.")
+
+def split_train_validate_test(run_args, local_rank: int) -> Tuple[Dict, bool, pd.DataFrame]:
     table_name = run_args.table_name
 
     df = load_db(run_args.table_name, run_args.db_name)
@@ -153,6 +165,7 @@ def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
 
     file_names = {}
 
+
     for name, target_df in [("train", df_train),
                             ("validate", df_validate),
                             ("test", df_test)
@@ -161,7 +174,7 @@ def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
         output_filename = f"data/{name}.{table_name}.docTquery"
 
         file_names[name] = output_filename
-        if run_args.local_rank == 0:
+        if local_rank == 0:
             print(f"Writing DataFrame to {output_filename}...")
 
             with open(output_filename, "w") as f:
@@ -202,8 +215,11 @@ def main():
     parser = HfArgumentParser((TrainingArguments, RunArguments))
     training_args, run_args = parser.parse_args_into_dataclasses()
 
+    verify_distributed_setup()
+
     # We use wandb logger: https://wandb.ai/site.
-    if training_args.local_rank == 0:  # only on main process
+    local_rank = training_args.local_rank
+    if local_rank == 0:  # only on main process
         # Initialize wandb run
         wandb.login()
         wandb.init(project="DSI", name=training_args.run_name)
@@ -272,7 +288,7 @@ def main():
 
         if table_name is not None and db_name is not None:
 
-            file_names, run_semantic, df = split_train_validate_test(run_args)
+            file_names, run_semantic, df = split_train_validate_test(run_args, local_rank)
 
             run_args.train_file = file_names["train"]
             run_args.valid_file = file_names["validate"]
