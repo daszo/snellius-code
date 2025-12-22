@@ -3,6 +3,7 @@
 #SBATCH -p gpu_a100
 #SBATCH -N 1
 #SBATCH -G 2
+#SBATCH --cpus-per-task=18
 #SBATCH -t 30:00:00
 #SBATCH --mail-type=BEGIN,END
 #SBATCH --mail-user=daniel.van.oosteroom@student.uva.nl
@@ -21,7 +22,7 @@ ENV_PATH="/gpfs/work5/0/prjs1828/DSI-QG"
 #Python/3.9.5-GCCcore-10.3.0
 
 # 2. I/O Optimization: Use Local Scratch ($TMPDIR)
-# Home and Project directories are network-mounted (slow). 
+# Home and Project directories are network-mounted (slow).
 # SQLite/DB reads should happen on local SSD scratch.
 echo "Copying database to local scratch: $TMPDIR"
 cp "$ENV_PATH/data/enron.db" "$TMPDIR/enron.db"
@@ -32,6 +33,7 @@ source "$ENV_PATH/.venv/bin/activate"
 export PYTHONUNBUFFERED=1
 
 torchrun --nproc_per_node=2 run.py \
+<<<<<<< HEAD
 	--task "DSI" \
 	--model_name "$ENV_PATH/local_models/google/mt5-base" \
 	--run_name "enron-10k-mt5-base-DSI-Q-classic" \
@@ -43,7 +45,7 @@ torchrun --nproc_per_node=2 run.py \
         --per_device_eval_batch_size 32 \
         --evaluation_strategy "steps" \
 	--eval_steps 1000 \
-        --max_steps 1000000 \
+        --max_steps 100000 \
         --save_strategy "steps" \
         --dataloader_num_workers 12 \
         --save_steps 1000 \
