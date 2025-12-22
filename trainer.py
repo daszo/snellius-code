@@ -44,7 +44,7 @@ class DSITrainer(Trainer):
             # Beam search
             batch_beams = model.generate(
                 inputs["input_ids"].to(self.args.device),
-                max_length=20,
+                max_length=self.id_max_length,
                 num_beams=20,
                 prefix_allowed_tokens_fn=self.restrict_decode_vocab,
                 num_return_sequences=20,
@@ -83,7 +83,12 @@ class DSITrainer(Trainer):
         padded_tensor = pad_token_id * torch.ones(
             (tensor.shape[0], max_length), dtype=tensor.dtype, device=tensor.device
         )
-        padded_tensor[:, : tensor.shape[-1]] = tensor
+        # Determine the safe length to copy (min of data length or max allowed length)
+        seq_len = min(tensor.shape[-1], max_length)
+        
+        # Copy only the safe length. This truncates if the data is too long.
+        padded_tensor[:, :seq_len] = tensor[:, :seq_len]
+
         return padded_tensor
 
 
@@ -161,7 +166,11 @@ class DocTqueryTrainer(Trainer):
         padded_tensor = pad_token_id * torch.ones(
             (tensor.shape[0], max_length), dtype=tensor.dtype, device=tensor.device
         )
-        padded_tensor[:, : tensor.shape[-1]] = tensor
+        # Determine the safe length to copy (min of data length or max allowed length)
+        seq_len = min(tensor.shape[-1], max_length)
+                        
+        # Copy only the safe length. This truncates if the data is too long.
+        padded_tensor[:, :seq_len] = tensor[:, :seq_len]
         return padded_tensor
 
     def predict(

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-python3 -m torch.distributed.launch --nproc_per_node=1 run.py \
+ 
+PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun --nproc_per_node=1 run.py \
     --do_predict \
     --task generation \
     --table_name N10k_text_rank \
@@ -13,4 +14,4 @@ python3 -m torch.distributed.launch --nproc_per_node=1 run.py \
     --dataloader_num_workers 10 \
     --report_to wandb \
     --logging_steps 100 \
-    --num_return_sequences 1
+    --num_return_sequences 1 2>&1 | tee make_queries_db.log

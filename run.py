@@ -156,9 +156,10 @@ def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
     for name, target_df in [("train", df_train),
                             ("validate", df_validate),
                             ("test", df_test)
-                           ]:
+                            ]:
 
         output_filename = f"data/{name}.{table_name}.docTquery"
+
         file_names[name] = output_filename
         if run_args.local_rank == 0:
             print(f"Writing DataFrame to {output_filename}...")
@@ -409,7 +410,7 @@ def main():
 
             df_pred = pd.DataFrame(data)
 
-            df_result = df_db.merge(df_pred, on="mid", how="left")
+            df_result = df_db.merge(df_pred, left_index=True, right_on="mid", how="left")
 
             destination_table_name = (
                 f"{table_name}_d2q_q{run_args.num_return_sequences}"
