@@ -16,7 +16,7 @@ PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun --nproc_per_
         --save_strategy steps \
         --dataloader_num_workers 10 \
         --save_steps 1000 \
-        --save_total_limit 2 \
+        --save_total_limit None \
         --load_best_model_at_end \
         --gradient_accumulation_steps 1 \
         --report_to wandb \
