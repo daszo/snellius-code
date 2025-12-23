@@ -1,12 +1,14 @@
 import sqlite3
 import pandas as pd
 
+DB_PATH = "data/enron.db"
 
-def load_db(table: str, DB_PATH: str = "data/enron.db") -> pd.DataFrame:
 
-    print(f"Started, Loading DB {DB_PATH}")
+def load_db(table: str, db_path: str = DB_PATH) -> pd.DataFrame:
 
-    conn = sqlite3.connect(DB_PATH)
+    print(f"Started, Loading DB {db_path}")
+
+    conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
     sql_query = f"SELECT * FROM {table}"
@@ -21,11 +23,11 @@ def load_db(table: str, DB_PATH: str = "data/enron.db") -> pd.DataFrame:
     return df
 
 
-def write_to_db(df: pd.DataFrame, table: str, DB_PATH: str = "data/enron.db"):
+def write_to_db(df: pd.DataFrame, table: str, db_path: str = DB_PATH):
 
-    print(f"Started, Writing {table} to database {DB_PATH}")
+    print(f"Started, Writing {table} to database {db_path}")
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(db_path)
 
     # Write to new table 'similarities'
     # if_exists='replace' drops the table if it exists and creates a new one
@@ -44,4 +46,31 @@ def write_to_db(df: pd.DataFrame, table: str, DB_PATH: str = "data/enron.db"):
 
     conn.close()
 
-    print(f"Finished, Writing {table} to database {DB_PATH}")
+    print(f"Finished, Writing {table} to database {db_path}")
+
+
+def save_result(data_tuple, db_path: str = DB_PATH):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    sql = """
+    INSERT INTO experiment_results (
+        system, size, experiment_type, version, 
+        mrr_3, mrr_20, hits_1, hits_10
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(system, size, experiment_type, version) 
+    DO UPDATE SET 
+        mrr_3=excluded.mrr_3,
+        mrr_20=excluded.mrr_20,
+        hits_1=excluded.hits_1,
+        hits_10=excluded.hits_10;
+    """
+
+    cursor.execute(sql, data_tuple)
+    conn.commit()
+    conn.close()
+
+
+# Example usage:
+# data = ('BERT-Base', '110M', 'retrieval', 'v1.2', 0.45, 0.62, 0.31, 0.88)
+# save_result('experiments.db', data)

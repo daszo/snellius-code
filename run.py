@@ -329,6 +329,8 @@ def main():
             def restrict_decode_vocab(batch_idx, prefix_beam):
                 return decoder_trie.get(prefix_beam.tolist())
 
+        model.resize_token_embeddings(len(tokenizer))
+
         trainer = DSITrainer(
             model=model,
             tokenizer=tokenizer,
