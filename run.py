@@ -192,12 +192,14 @@ def split_train_validate_test(run_args, local_rank: int) -> Tuple[Dict, bool, pd
 
                         text_id = str(item_dict['elaborative_description'])
                         
+                        new_item_dict = {}
+                        
                         # Create the 'text' column by combining description and the specific option
-                        item_dict['text'] = f"{item_dict[option]}"
-                        item_dict['text_id'] = text_id
+                        new_item_dict['text'] = f"{item_dict[option]}"
+                        new_item_dict['text_id'] = text_id
                         
                         # Dump the dictionary to a JSON string
-                        jitem = json.dumps(item_dict)
+                        jitem = json.dumps(new_item_dict)
 
                         # Write the JSON string followed by a newline
                         f.write(jitem + "\n")
@@ -448,6 +450,37 @@ def main():
                         query = fast_tokenizer.decode(tokens, skip_special_tokens=True)
                         jitem = json.dumps({"text_id": docid.item(), "text": query})
                         f.write(jitem + "\n")
+
+    elif run_args.task == "test":
+
+            file_names, run_semantic, df = split_train_validate_test(run_args, local_rank)
+
+            run_args.test_file = file_names["test"]
+        
+            decoder_trie = generate_trie_dict(df, tokenizer)
+
+            def restrict_decode_vocab(batch_idx, prefix_beam):
+                return decoder_trie.get(prefix_beam.tolist())
+
+
+        trainer = DSITrainer(
+            model=model,
+            tokenizer=tokenizer,
+            run_semantic=run_semantic,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=valid_dataset,
+            data_collator=IndexingCollator(
+                tokenizer,
+                padding="longest",
+            ),
+            compute_metrics=make_compute_metrics(
+                fast_tokenizer, train_dataset.valid_ids
+            ),
+            restrict_decode_vocab=restrict_decode_vocab ,
+            id_max_length=run_args.id_max_length,
+        )
+
 
     else:
         raise NotImplementedError(

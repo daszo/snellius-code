@@ -9,7 +9,6 @@ def load_db(table: str, db_path: str = DB_PATH) -> pd.DataFrame:
     print(f"Started, Loading DB {db_path}")
 
     conn = sqlite3.connect(db_path)
-    c = conn.cursor()
 
     sql_query = f"SELECT * FROM {table}"
 
