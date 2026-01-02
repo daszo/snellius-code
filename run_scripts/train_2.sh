@@ -33,12 +33,11 @@ source "$ENV_PATH/.venv/bin/activate"
 export PYTHONUNBUFFERED=1
 
 torchrun --nproc_per_node=2 run.py \
-<<<<<<< HEAD
 	--task "DSI" \
 	--model_name "$ENV_PATH/local_models/google/mt5-base" \
-	--run_name "enron-10k-mt5-base-DSI-Q-classic" \
+	--run_name "enron-10k-mt5-base-DSI-Q-classic2" \
         --max_length 32 \
-        --output_dir "$ENV_PATH/models/enron-10k-mt5-base-DSI-Q-classic" \
+        --output_dir "$ENV_PATH/models/enron-10k-mt5-base-DSI-Q-classic2" \
         --learning_rate 0.0005 \
         --warmup_steps 100000 \
         --per_device_train_batch_size 32 \
