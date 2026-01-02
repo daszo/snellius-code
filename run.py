@@ -33,6 +33,8 @@ import os
 from CE.utils.database import load_db, write_to_db
 
 from CE.tries import generate_trie_dict
+from CE.test.evaluation_BM25 import BM25EmailSearchEvaluator
+from CE.test.gr_evaluation import BM25EmailSearchEvaluator
 
 from sklearn.model_selection import train_test_split
 
@@ -462,11 +464,17 @@ def main():
             def restrict_decode_vocab(batch_idx, prefix_beam):
                 return decoder_trie.get(prefix_beam.tolist())
 
+        model,
+        tokenizer,
+        device,
+        restrict_decode_vocab,
+        id_max_length=20,
+        batch_size=8,
 
         trainer = DSITrainer(
             model=model,
             tokenizer=tokenizer,
-            run_semantic=run_semantic,
+            device=None,
             args=training_args,
             train_dataset=train_dataset,
             eval_dataset=valid_dataset,
