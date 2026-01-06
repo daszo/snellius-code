@@ -144,3 +144,4 @@ wandb/
 #BM 25 junk.
 corpus_data/
 indexes/
+dsi_eval_cache/
