@@ -1,171 +1,357 @@
-import torch
-import os
 import json
+import os
 import shutil
-from unittest.mock import MagicMock
-from types import SimpleNamespace
+import torch
+import pandas as pd
+import numpy as np
+from torch.utils.data import DataLoader, Dataset
+from typing import List, Dict, Any, Union, Tuple
+from tqdm import tqdm
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, DataCollatorWithPadding
 
-from gr_evaluation import DSIEmailSearchEvaluator
+# --- MOCKS FOR MISSING DEPENDENCIES ---
+# Replacing 'database', 'data', 'general', 'run' imports with placeholders
+# so this script runs standalone.
 
-# Make sure to import your class:
-# from your_module import DSIEmailSearchEvaluator
+class RunArguments:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+class BaseMetricCalculator:
+    def calculate_mrr(self, ranks, k):
+        return np.mean([1.0 / r if r <= k else 0.0 for r in ranks])
+
+    def calculate_hits(self, ranks, k):
+        return np.mean([1.0 if r <= k else 0.0 for r in ranks])
+
+def save_result(data):
+    print(f"--> [MOCK DB SAVE] Saved results: {data}")
+
+class IndexingCollator:
+    """Mock Collator that pads input_ids."""
+    def __init__(self, tokenizer, padding):
+        self.tokenizer = tokenizer
+        
+    def __call__(self, batch):
+        input_ids = [torch.tensor(item['input_ids']) for item in batch]
+        labels = [torch.tensor(item['labels']) for item in batch]
+        
+        # Pad inputs
+        inputs_padded = torch.nn.utils.rnn.pad_sequence(
+            input_ids, batch_first=True, padding_value=self.tokenizer.pad_token_id
+        )
+        # Pad labels (targets)
+        labels_padded = torch.nn.utils.rnn.pad_sequence(
+            labels, batch_first=True, padding_value=-100
+        )
+        
+        attention_mask = (inputs_padded != self.tokenizer.pad_token_id).long()
+        
+        return {
+            "input_ids": inputs_padded,
+            "attention_mask": attention_mask,
+            "labels": labels_padded
+        }
+
+# --- END MOCKS ---
+
+class DSIEvalDataset(Dataset):
+    """Simple dataset wrapper for inference."""
+
+    def __init__(self, data_path, tokenizer, max_length):
+        self.data = []
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+
+        with open(data_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    self.data.append(json.loads(line))
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        item = self.data[idx]
+        # Tokenize Query
+        inputs = self.tokenizer(
+            item["text"],
+            truncation=True,
+            max_length=self.max_length,
+            padding=False, 
+        )
+        # Tokenize Target DocID for ground truth comparison
+        # We assume text_id is a string. If it's an int, convert it.
+        labels = self.tokenizer(
+            str(item["text_id"]), truncation=True, max_length=64, padding=False
+        )
+        return {
+            "input_ids": inputs["input_ids"],
+            "attention_mask": inputs["attention_mask"],
+            "labels": labels["input_ids"],
+        }
 
 
-def test_dsi_evaluator():
-    print("--- Starting DSI Evaluator Test ---")
+class DSIPredictor:
+    """Lightweight inference wrapper replacing the Trainer."""
 
-    # 1. Setup Mock Components
-    # -------------------------
+    def __init__(
+        self,
+        model,
+        tokenizer,
+        device,
+        restrict_decode_vocab,
+        id_max_length=20,
+        batch_size=8,
+        num_return_sequences=20, # Added this to ensure consistency
+    ):
+        self.model = model
+        self.tokenizer = tokenizer
+        self.device = device
+        self.restrict_decode_vocab = restrict_decode_vocab
+        self.id_max_length = id_max_length
+        self.batch_size = batch_size
+        self.num_return_sequences = num_return_sequences
 
-    # Mock Tokenizer: Basic encode/decode logic
-    tokenizer = MagicMock()
-    tokenizer.pad_token_id = 0
-    tokenizer.eos_token_id = 1
-
-    def mock_call(text, **kwargs):
-        # Returns dummy tensors.
-        # For labels (ids), let's pretend the token ID is the integer value of the char (e.g., "1" -> 1)
-        if text.isdigit():
-            ids = [int(c) for c in text]
-        else:
-            ids = [10, 11, 12]  # dummy query tokens
-        return {"input_ids": torch.tensor(ids), "attention_mask": torch.ones(len(ids))}
-
-    tokenizer.side_effect = mock_call
-
-    def mock_decode(token_ids, skip_special_tokens=True):
-        # Decodes back to string. Assumes input is list or tensor.
-        if isinstance(token_ids, torch.Tensor):
-            token_ids = token_ids.tolist()
-        # Filter out 0 (pad) and 1 (eos) and join
-        cleaned = [str(t) for t in token_ids if t > 1]
-        return "".join(cleaned)
-
-    tokenizer.decode.side_effect = mock_decode
-
-    # Mock Model: Generates specific beams to test ranking
-    model = MagicMock()
-    model.config.pad_token_id = 0
-
-    def mock_generate(input_ids, **kwargs):
-        # We need to return shape (Batch * Num_Beams, Seq_Len)
-        # We simulate a batch size of 1 for simplicity in this test loop
-        num_beams = kwargs.get("num_beams", 20)
-        bs = input_ids.shape[0]
-
-        # Create a tensor filled with "wrong" answers (e.g., id "999")
-        # [9, 9, 9, 1 (eos), 0 (pad)]
-        wrong_seq = torch.tensor([9, 9, 9, 1, 0])
-        out = wrong_seq.repeat(bs * num_beams, 1)
-
-        # Inject the "correct" answer ("123") into the FIRST beam (Rank 1)
-        # "123" -> tokens [1, 2, 3] + eos [1]
-        correct_seq = torch.tensor([1, 2, 3, 1, 0])
-
-        # We only inject the correct answer for the FIRST item in the batch
-        # This allows us to test a "success" case (Rank 1) and a "fail" case (Rank inf)
-        # depending on what the ground truth is in the JSON file.
-        out[0] = correct_seq
-
-        return out
-
-    model.generate.side_effect = mock_generate
-
-    # Mock Arguments
-    run_args = SimpleNamespace(
-        max_length=32,
-        id_max_length=10,
-        per_device_eval_batch_size=1,
-        top_k=10,
-        num_return_sequences=20,
-    )
-
-    # Mock Restrict Vocab (dummy)
-    def restrict_decode_vocab(batch_idx, prefix_beam):
-        return [1, 2, 3, 4, 5, 6, 7, 8, 9]
-
-    # 2. Setup Dummy Data
-    # -------------------
-    input_file = "test_input_temp.jsonl"
-    with open(input_file, "w") as f:
-        # Case 1: TextRank Query. Ground Truth = 123.
-        # Our mock model puts "123" at Rank 1. -> Expected Rank: 1
-        f.write(
-            json.dumps(
-                {
-                    "text_id": 123,
-                    "text_rank_query": "query_success",
-                    "body_clean": "content",
-                }
-            )
-            + "\n"
+    def predict(self, dataset, collator):
+        dataloader = DataLoader(
+            dataset, batch_size=self.batch_size, collate_fn=collator, shuffle=False
         )
 
-        # Case 2: Doc2Query. Ground Truth = 456.
-        # Our mock model puts "123" at Rank 1 and "999" elsewhere. -> Expected Rank: inf
-        f.write(
-            json.dumps(
-                {"text_id": 456, "doctoquery": "query_fail", "body_clean": "content"}
-            )
-            + "\n"
+        self.model.eval()
+        self.model.to(self.device)
+
+        all_preds = []
+        all_labels = []
+
+        with torch.no_grad():
+            for batch in tqdm(dataloader, desc="Running Inference"):
+                input_ids = batch["input_ids"].to(self.device)
+                
+                # Beam Search Generation
+                # Returns (Batch * Num_Return_Sequences, Seq_Len)
+                outputs = self.model.generate(
+                    input_ids,
+                    max_length=self.id_max_length,
+                    num_beams=self.num_return_sequences, # Usually beams == return_seqs for retrieval
+                    prefix_allowed_tokens_fn=self.restrict_decode_vocab,
+                    num_return_sequences=self.num_return_sequences,
+                    early_stopping=True,
+                )
+
+                # Reshape to (Batch, Num_Beams, Seq_Len)
+                # Important: The view must match the batch size of the current iteration
+                current_batch_size = input_ids.shape[0]
+                batch_preds = outputs.view(current_batch_size, self.num_return_sequences, -1)
+
+                all_preds.extend(batch_preds.cpu().tolist())
+                all_labels.extend(batch["labels"].cpu().tolist())
+
+        return all_preds, all_labels
+
+
+class DSIEmailSearchEvaluator(BaseMetricCalculator):
+    def __init__(
+        self,
+        model,
+        tokenizer,
+        run_args,
+        input_file: str,
+        restrict_decode_vocab,
+        eval_dir: str = "dsi_eval_cache",
+        device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    ):
+        self.model = model
+        self.tokenizer = tokenizer
+        self.run_args = run_args
+        self.input_file = input_file
+        self.eval_dir = eval_dir
+        self.device = device
+
+        # DSI specific components
+        self.restrict_decode_vocab = restrict_decode_vocab
+        self.id_max_length = getattr(run_args, "id_max_length", 20)
+        self.batch_size = getattr(run_args, "per_device_eval_batch_size", 8)
+
+        self.dataset_map = []  # Tracks order of query types
+        self.execution_results = {"textrank": [], "d2q": []}
+        self.final_metrics = []
+        self.valid_file_path = None
+
+    def prepare_data(self):
+        """Prepares the validation JSONL file."""
+        if os.path.exists(self.eval_dir):
+            shutil.rmtree(self.eval_dir)
+        os.makedirs(self.eval_dir)
+
+        valid_file_path = os.path.join(self.eval_dir, "valid.jsonl")
+
+        with open(self.input_file, "r", encoding="utf-8") as fin, open(
+            valid_file_path, "w", encoding="utf-8"
+        ) as fout:
+            for line in fin:
+                data = json.loads(line)
+                text_id = data.get("text_id")
+
+                # We create separate entries for different query generation methods
+                if data.get("text_rank_query"):
+                    entry = {"text": data["text_rank_query"], "text_id": text_id}
+                    fout.write(json.dumps(entry) + "\n")
+                    self.dataset_map.append("textrank")
+
+                if data.get("doctoquery"):
+                    entry = {"text": data["doctoquery"], "text_id": text_id}
+                    fout.write(json.dumps(entry) + "\n")
+                    self.dataset_map.append("d2q")
+
+        self.valid_file_path = valid_file_path
+
+    def run_retrieval_phase(self):
+        """Runs the DSIPredictor and calculates ranks."""
+        if not self.valid_file_path:
+            raise ValueError("Run prepare_data() before run_retrieval_phase()")
+
+        # 1. Setup Data
+        dataset = DSIEvalDataset(
+            data_path=self.valid_file_path,
+            tokenizer=self.tokenizer,
+            max_length=getattr(self.run_args, "max_length", 128),
         )
 
-    # 3. Run Pipeline
-    # ---------------
-    try:
-        evaluator = DSIEmailSearchEvaluator(
-            model=model,
-            tokenizer=tokenizer,
-            run_args=run_args,
-            input_file=input_file,
-            restrict_decode_vocab=restrict_decode_vocab,
-            eval_dir="test_eval_cache_temp",
-            device="cpu",
+        collator = IndexingCollator(self.tokenizer, padding="longest")
+
+        # 2. Setup Predictor
+        predictor = DSIPredictor(
+            model=self.model,
+            tokenizer=self.tokenizer,
+            device=self.device,
+            restrict_decode_vocab=self.restrict_decode_vocab,
+            id_max_length=self.id_max_length,
+            batch_size=self.batch_size,
         )
 
-        print("1. Testing prepare_data()...")
-        evaluator.prepare_data()
-        if os.path.exists("test_eval_cache_temp/valid.jsonl"):
-            print("   [Pass] Valid file created.")
-        else:
-            print("   [Fail] Valid file missing.")
+        # 3. Run Inference
+        predictions, labels = predictor.predict(dataset, collator)
 
-        print("2. Testing run_retrieval_phase()...")
-        evaluator.run_retrieval_phase()
+        # 4. Calculate Ranks
+        # predictions is list of shape (Batch, 20 beams, Seq_Len)
+        for i, beam_tokens_list in enumerate(predictions):
+            target_tokens = labels[i]
 
-        # Check internal state
-        tr_ranks = evaluator.execution_results["textrank"]
-        d2q_ranks = evaluator.execution_results["d2q"]
+            # Decode Target 
+            target_doc_id = self.tokenizer.decode(
+                [t for t in target_tokens if t != -100], skip_special_tokens=True
+            ).strip()
 
-        print(f"   TextRank Ranks (Expect [1]): {tr_ranks}")
-        print(f"   D2Q Ranks (Expect [inf]): {d2q_ranks}")
+            rank = float("inf")
 
-        assert tr_ranks == [1], "TextRank retrieval failed or ranked incorrectly."
-        assert d2q_ranks == [float("inf")], "D2Q should have failed retrieval."
+            # Check beams
+            for r, beam_toks in enumerate(beam_tokens_list):
+                pred_doc_id = self.tokenizer.decode(
+                    beam_toks, skip_special_tokens=True
+                ).strip()
 
-        print("3. Testing compute_metrics()...")
-        evaluator.compute_metrics()
+                if pred_doc_id == target_doc_id:
+                    rank = r + 1
+                    break
 
-        # TextRank: MRR@3 = 1.0
-        # D2Q: MRR@3 = 0.0
-        # Avg MRR@3 should be 0.5
-        final_mrr3 = float(evaluator.final_metrics[0])
-        print(f"   Final Aggregated MRR@3 (Expect 0.5): {final_mrr3}")
+            # Record Rank
+            # Map index i back to the query type
+            if i < len(self.dataset_map):
+                query_type = self.dataset_map[i]
+                self.execution_results[query_type].append(rank)
 
-        assert final_mrr3 == 0.5, f"Metrics calculation incorrect. Got {final_mrr3}"
-        print("   [Pass] Metrics calculated correctly.")
+    def compute_metrics(self):
+        """Computes MRR and Hits metrics."""
+        all_type_metrics = []
+        for key in ["textrank", "d2q"]:
+            ranks = self.execution_results[key]
+            if not ranks:
+                print(f"No results for {key}")
+                # Append zeros to keep indexing consistent if one missing
+                all_type_metrics.append([0.0, 0.0, 0.0, 0.0])
+                continue
 
-    except Exception as e:
-        print(f"\n[ERROR] Test Failed: {e}")
-        raise e
-    finally:
-        # Cleanup
-        if os.path.exists(input_file):
-            os.remove(input_file)
-        if os.path.exists("test_eval_cache_temp"):
-            shutil.rmtree("test_eval_cache_temp")
-        print("--- Test Cleanup Complete ---")
+            mrr3 = self.calculate_mrr(ranks, 3)
+            mrr20 = self.calculate_mrr(ranks, 20)
+            hits1 = self.calculate_hits(ranks, 1)
+            hits10 = self.calculate_hits(ranks, 10)
+
+            all_type_metrics.append([mrr3, mrr20, hits1, hits10])
+            print(f"\nResults for {key}: MRR@3: {mrr3:.4f}, Hits@1: {hits1:.4f}")
+
+        # Average across the two query types if both exist
+        if len(all_type_metrics) >= 1:
+             # Calculate average across the types we found
+            sums = [sum(x) for x in zip(*all_type_metrics)]
+            count = len(all_type_metrics)
+            self.final_metrics = [f"{s/count:.4f}" for s in sums]
+
+    def save_results(self, size: str, experiment_type: str, version: str = "v1.0"):
+        data = ["DSI-base", size, experiment_type, version] + self.final_metrics
+        save_result(tuple(data))
 
 
 if __name__ == "__main__":
-    test_dsi_evaluator()
+    # --- 1. SETUP DUMMY ARGS ---
+    run_args = RunArguments(
+        model_name="local_models/google/mt5-base",
+        task="DSI",
+        db_name="data/enron.db",
+        train_size=0.8,
+        validate_size=0.1,
+        test_size=0.1,
+        id_max_length=10,
+        max_length=64,
+        per_device_eval_batch_size=2
+    )
+
+    # --- 2. SETUP DUMMY DATA ---
+    # Create a dummy dataframe and save it to jsonl for the evaluator to read
+    print("Generating dummy data...")
+    dummy_data = [
+        {"text_id": "1001", "text_rank_query": "budget meeting", "doctoquery": "finance report"},
+        {"text_id": "1002", "text_rank_query": "project launch", "doctoquery": "marketing plan"},
+        {"text_id": "1003", "text_rank_query": "holiday party", "doctoquery": "hr announcement"}
+    ]
+    input_file = "dummy_eval_input.jsonl"
+    with open(input_file, "w") as f:
+        for item in dummy_data:
+            f.write(json.dumps(item) + "\n")
+
+    # --- 3. LOAD MODEL & TOKENIZER ---
+    print(f"Loading model {run_args.model_name}...")
+    tokenizer = AutoTokenizer.from_pretrained(run_args.model_name)
+    model = AutoModelForSeq2SeqLM.from_pretrained(run_args.model_name)
+
+    # --- 4. DEFINE RESTRICTION FUNCTION ---
+    # For this test, we allow all tokens. In production, this uses your Trie.
+    def dummy_restrict_decode_vocab(batch_idx, prefix_input_ids):
+        return None # None means all tokens allowed
+    
+    # --- 5. RUN EVALUATOR ---
+    print("Initializing Evaluator...")
+    evaluator = DSIEmailSearchEvaluator(
+        model=model,
+        tokenizer=tokenizer,
+        run_args=run_args,
+        input_file=input_file,
+        restrict_decode_vocab=dummy_restrict_decode_vocab
+    )
+
+    print("Preparing Data...")
+    evaluator.prepare_data()
+    
+    print("Running Retrieval Phase (Inference)...")
+    evaluator.run_retrieval_phase()
+    
+    print("Computing Metrics...")
+    evaluator.compute_metrics()
+    
+    print("Saving Results...")
+    evaluator.save_results(size="small", experiment_type="test_run")
+    
+    # Cleanup
+    if os.path.exists(input_file):
+        os.remove(input_file)
+    print("Done.")

@@ -8,6 +8,7 @@ from tqdm import tqdm
 from database import save_result
 from data import IndexingCollator  # Assuming this exists in your project
 from general import BaseMetricCalculator
+from run import RunArguments
 
 
 class DSIEvalDataset(Dataset):
@@ -232,23 +233,35 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
         data = ["DSI-base", size, experiment_type, version] + self.final_metrics
         save_result(tuple(data))
 
+
 if "__main__" == __name__:
+    run_args = RunArguments(
+        model_name="t5-small",  # Use a small model for testing
+        task="DSI",
+        table_name="test_emails",  # Dummy table name
+        db_name="my_test_db",  # Dummy DB
+        train_size=0.8,
+        validate_size=0.1,
+        test_size=0.1,
+        id_max_length=10,  # Short length for speed
+    )
 
-table_name = run_args.table_name
+    table_name = run_args.table_name
 
-df = load_db(run_args.table_name, run_args.db_name)
+    df = load_db(run_args.table_name, run_args.db_name)
 
-semantic_ids = df['elaborative_description'].map(type).eq(str).all()
-if semantic_ids is True:
+    semantic_ids = df["elaborative_description"].map(type).eq(str).all()
 
-tokenizer = AutoTokenizer.from_pretrained("t5-base")
-def count_t5_tokens(text):
-    return len(tokenizer.encode(text))
-df['token_count'] = df['text'].apply(count_t5_tokens)
-longest_count = df['token_count'].max()
+    tokenizer = AutoTokenizer.from_pretrained("t5-base")
 
-run_args.id_max_length = longest_count
+    def count_t5_tokens(text):
+        return len(tokenizer.encode(text))
 
-evaluator = DSIEmailSearchEvaluator(
-        model = "/enron-10k-mt5-base-DSI-Q-classic/checkpoint-15000/"
-        )
+    df["token_count"] = df["text"].apply(count_t5_tokens)
+    longest_count = df["token_count"].max()
+
+    run_args.id_max_length = longest_count
+
+    evaluator = DSIEmailSearchEvaluator(
+        model="/enron-10k-mt5-base-DSI-Q-classic/checkpoint-15000/"
+    )
