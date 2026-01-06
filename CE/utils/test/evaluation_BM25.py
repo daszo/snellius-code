@@ -4,8 +4,8 @@ import shutil
 import subprocess
 from typing import List, Dict
 from pyserini.search.lucene import LuceneSearcher
-from database import save_result
-from general import BaseMetricCalculator
+from CE.utils.database import save_result
+from CE.utils.test.general import BaseMetricCalculator
 
 
 class BM25EmailSearchEvaluator(BaseMetricCalculator):
@@ -132,7 +132,7 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
 
 
 if __name__ == "__main__":
-    evaluator = BM2EmailSearchEvaluator(input_file="test.jsonl")
+    evaluator = BM25EmailSearchEvaluator(input_file="data/test.N10k_text_rank_d2q_q1.docTquery")
     evaluator.prepare_data()
     evaluator.build_index()
     evaluator.run_retrieval_phase()

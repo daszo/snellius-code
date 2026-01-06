@@ -231,3 +231,24 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
     def save_results(self, size: str, experiment_type: str, version: str = "v1.0"):
         data = ["DSI-base", size, experiment_type, version] + self.final_metrics
         save_result(tuple(data))
+
+if "__main__" == __name__:
+
+table_name = run_args.table_name
+
+df = load_db(run_args.table_name, run_args.db_name)
+
+semantic_ids = df['elaborative_description'].map(type).eq(str).all()
+if semantic_ids is True:
+
+tokenizer = AutoTokenizer.from_pretrained("t5-base")
+def count_t5_tokens(text):
+    return len(tokenizer.encode(text))
+df['token_count'] = df['text'].apply(count_t5_tokens)
+longest_count = df['token_count'].max()
+
+run_args.id_max_length = longest_count
+
+evaluator = DSIEmailSearchEvaluator(
+        model = "/enron-10k-mt5-base-DSI-Q-classic/checkpoint-15000/"
+        )
