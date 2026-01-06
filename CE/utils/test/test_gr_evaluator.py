@@ -153,16 +153,25 @@ class DSIPredictor:
 class DSIEmailSearchEvaluator(BaseMetricCalculator):
     def __init__(
         self,
-        model,
-        tokenizer,
+        model = None,
+        tokenizer = None,
         run_args,
         input_file: str,
         restrict_decode_vocab,
         eval_dir: str = "dsi_eval_cache",
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
+
+        tokenizer = AutoTokenizer.from_pretrained(run_args.model_name)
+        if isinstance(model, str) or (model is None and run_args.model_name != ""):
+            model = AutoModelForSeq2SeqLM.from_pretrained(model or run_args.model_name)
+            tokenizer = AutoTokenizer.from_pretrained(run_args.model_name)
+        if model is None and (run_args is None or run_args.model_name == ""):
+            raise ValueError("no model provided")
+
         self.model = model
         self.tokenizer = tokenizer
+
         self.run_args = run_args
         self.input_file = input_file
         self.eval_dir = eval_dir
@@ -349,7 +358,7 @@ if __name__ == "__main__":
     evaluator.compute_metrics()
     
     print("Saving Results...")
-    evaluator.save_results(size="small", experiment_type="test_run")
+    evaluator.save_results(size="10k", experiment_type="base")
     
     # Cleanup
     if os.path.exists(input_file):
