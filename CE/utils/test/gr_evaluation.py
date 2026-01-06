@@ -9,6 +9,8 @@ from database import save_result
 from data import IndexingCollator  # Assuming this exists in your project
 from general import BaseMetricCalculator
 from run import RunArguments
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+from run import generate_trie_dict
 
 
 class DSIEvalDataset(Dataset):
@@ -21,7 +23,8 @@ class DSIEvalDataset(Dataset):
 
         with open(data_path, "r", encoding="utf-8") as f:
             for line in f:
-                self.data.append(json.loads(line))
+                if line.strip():
+                    self.data.append(json.loads(line))
 
     def __len__(self):
         return len(self.data)
@@ -33,9 +36,10 @@ class DSIEvalDataset(Dataset):
             item["text"],
             truncation=True,
             max_length=self.max_length,
-            padding=False,  # Collator handles padding
+            padding=False,
         )
         # Tokenize Target DocID for ground truth comparison
+        # We assume text_id is a string. If it's an int, convert it.
         labels = self.tokenizer(
             str(item["text_id"]), truncation=True, max_length=64, padding=False
         )
@@ -57,6 +61,7 @@ class DSIPredictor:
         restrict_decode_vocab,
         id_max_length=20,
         batch_size=8,
+        num_return_sequences=20,  # Added this to ensure consistency
     ):
         self.model = model
         self.tokenizer = tokenizer
@@ -64,6 +69,7 @@ class DSIPredictor:
         self.restrict_decode_vocab = restrict_decode_vocab
         self.id_max_length = id_max_length
         self.batch_size = batch_size
+        self.num_return_sequences = num_return_sequences
 
     def predict(self, dataset, collator):
         dataloader = DataLoader(
@@ -81,19 +87,22 @@ class DSIPredictor:
                 input_ids = batch["input_ids"].to(self.device)
 
                 # Beam Search Generation
-                # Returns (Batch * Num_Beams, Seq_Len)
+                # Returns (Batch * Num_Return_Sequences, Seq_Len)
                 outputs = self.model.generate(
                     input_ids,
                     max_length=self.id_max_length,
-                    num_beams=20,
+                    num_beams=self.num_return_sequences,  # Usually beams == return_seqs for retrieval
                     prefix_allowed_tokens_fn=self.restrict_decode_vocab,
-                    num_return_sequences=20,
+                    num_return_sequences=self.num_return_sequences,
                     early_stopping=True,
                 )
 
                 # Reshape to (Batch, Num_Beams, Seq_Len)
-                # We assume 20 return sequences as per user config
-                batch_preds = outputs.reshape(input_ids.shape[0], 20, -1)
+                # Important: The view must match the batch size of the current iteration
+                current_batch_size = input_ids.shape[0]
+                batch_preds = outputs.view(
+                    current_batch_size, self.num_return_sequences, -1
+                )
 
                 all_preds.extend(batch_preds.cpu().tolist())
                 all_labels.extend(batch["labels"].cpu().tolist())
@@ -104,23 +113,48 @@ class DSIPredictor:
 class DSIEmailSearchEvaluator(BaseMetricCalculator):
     def __init__(
         self,
-        model,
-        tokenizer,
         run_args,
         input_file: str,
-        restrict_decode_vocab,
+        restrict_decode_vocab=None,
+        df=None,
+        model=None,
+        tokenizer=None,
         eval_dir: str = "dsi_eval_cache",
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
+
+        tokenizer = AutoTokenizer.from_pretrained(run_args.model_name)
+        if isinstance(model, str) or (model is None and run_args.model_name != ""):
+            model = AutoModelForSeq2SeqLM.from_pretrained(model or run_args.model_name)
+            tokenizer = AutoTokenizer.from_pretrained(run_args.model_name)
+
+            if df is None:
+                raise ValueError(
+                    "no df provided to build the tree for the restric decode vocab fn"
+                )
+
+            if restrict_decode_vocab is None:
+                del restrict_decode_vocab
+                decoder_trie = generate_trie_dict(df, tokenizer)
+
+                def restrict_decode_vocab(batch_idx, prefix_beam):
+                    return decoder_trie.get(prefix_beam.tolist())
+
+        if model is None and (run_args is None or run_args.model_name == ""):
+            raise ValueError("no model provided")
+
         self.model = model
         self.tokenizer = tokenizer
+
         self.run_args = run_args
         self.input_file = input_file
         self.eval_dir = eval_dir
         self.device = device
+        if restrict_decode_vocab is None:
+            raise ValueError("cant build the restrict_decode_vocab_fn, no model path is given. Provide the function or use the model path method")
+        self.restrict_decode_vocab = restrict_decode_vocab
 
         # DSI specific components
-        self.restrict_decode_vocab = restrict_decode_vocab
         self.id_max_length = getattr(run_args, "id_max_length", 20)
         self.batch_size = getattr(run_args, "per_device_eval_batch_size", 8)
 
@@ -144,6 +178,7 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
                 data = json.loads(line)
                 text_id = data.get("text_id")
 
+                # We create separate entries for different query generation methods
                 if data.get("text_rank_query"):
                     entry = {"text": data["text_rank_query"], "text_id": text_id}
                     fout.write(json.dumps(entry) + "\n")
@@ -158,15 +193,20 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
 
     def run_retrieval_phase(self):
         """Runs the DSIPredictor and calculates ranks."""
+        if not self.valid_file_path:
+            raise ValueError("Run prepare_data() before run_retrieval_phase()")
 
         # 1. Setup Data
         dataset = DSIEvalDataset(
             data_path=self.valid_file_path,
             tokenizer=self.tokenizer,
-            max_length=self.run_args.max_length,
+            max_length=getattr(self.run_args, "max_length", 128),
         )
 
-        collator = IndexingCollator(self.tokenizer, padding="longest")
+        collator = IndexingCollator(
+            tokenizer=self.tokenizer,
+            padding="longest",  # Matches your 'longest' padding strategy
+        )
 
         # 2. Setup Predictor
         predictor = DSIPredictor(
@@ -186,7 +226,7 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
         for i, beam_tokens_list in enumerate(predictions):
             target_tokens = labels[i]
 
-            # Decode Target (clean up -100 if present from collator, though simple dataset likely just has pads)
+            # Decode Target
             target_doc_id = self.tokenizer.decode(
                 [t for t in target_tokens if t != -100], skip_special_tokens=True
             ).strip()
@@ -204,8 +244,10 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
                     break
 
             # Record Rank
-            query_type = self.dataset_map[i]
-            self.execution_results[query_type].append(rank)
+            # Map index i back to the query type
+            if i < len(self.dataset_map):
+                query_type = self.dataset_map[i]
+                self.execution_results[query_type].append(rank)
 
     def compute_metrics(self):
         """Computes MRR and Hits metrics."""
@@ -213,6 +255,9 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
         for key in ["textrank", "d2q"]:
             ranks = self.execution_results[key]
             if not ranks:
+                print(f"No results for {key}")
+                # Append zeros to keep indexing consistent if one missing
+                all_type_metrics.append([0.0, 0.0, 0.0, 0.0])
                 continue
 
             mrr3 = self.calculate_mrr(ranks, 3)
@@ -223,45 +268,115 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
             all_type_metrics.append([mrr3, mrr20, hits1, hits10])
             print(f"\nResults for {key}: MRR@3: {mrr3:.4f}, Hits@1: {hits1:.4f}")
 
-        if len(all_type_metrics) == 2:
-            self.final_metrics = [
-                f"{(all_type_metrics[0][i] + all_type_metrics[1][i]) / 2:.4f}"
-                for i in range(4)
-            ]
+        # Average across the two query types if both exist
+        if len(all_type_metrics) >= 1:
+            # Calculate average across the types we found
+            sums = [sum(x) for x in zip(*all_type_metrics)]
+            count = len(all_type_metrics)
+            self.final_metrics = [f"{s/count:.4f}" for s in sums]
 
     def save_results(self, size: str, experiment_type: str, version: str = "v1.0"):
         data = ["DSI-base", size, experiment_type, version] + self.final_metrics
         save_result(tuple(data))
 
 
-if "__main__" == __name__:
+if __name__ == "__main__":
+    # --- 1. SETUP DUMMY ARGS ---
     run_args = RunArguments(
-        model_name="t5-small",  # Use a small model for testing
+        model_name="local_models/google/mt5-base",
         task="DSI",
-        table_name="test_emails",  # Dummy table name
-        db_name="my_test_db",  # Dummy DB
+        db_name="data/enron.db",
         train_size=0.8,
         validate_size=0.1,
         test_size=0.1,
-        id_max_length=10,  # Short length for speed
+        id_max_length=10,
+        max_length=64,
     )
 
-    table_name = run_args.table_name
+    # --- 2. SETUP DUMMY DATA ---
+    # Create a dummy dataframe and save it to jsonl for the evaluator to read
+    print("Generating dummy data...")
+    dummy_data = [
+        {
+            "text_id": "1001",
+            "text_rank_query": "budget meeting",
+            "doctoquery": "finance report",
+        },
+        {
+            "text_id": "1002",
+            "text_rank_query": "project launch",
+            "doctoquery": "marketing plan",
+        },
+        {
+            "text_id": "1003",
+            "text_rank_query": "holiday party",
+            "doctoquery": "hr announcement",
+        },
+    ]
+    input_file = "dummy_eval_input.jsonl"
+    with open(input_file, "w") as f:
+        for item in dummy_data:
+            f.write(json.dumps(item) + "\n")
 
-    df = load_db(run_args.table_name, run_args.db_name)
+    # --- 4. DEFINE RESTRICTION FUNCTION ---
+    # For this test, we allow all tokens. In production, this uses your Trie.
+    def dummy_restrict_decode_vocab(batch_idx, prefix_input_ids):
+        return None  # None means all tokens allowed
 
-    semantic_ids = df["elaborative_description"].map(type).eq(str).all()
-
-    tokenizer = AutoTokenizer.from_pretrained("t5-base")
-
-    def count_t5_tokens(text):
-        return len(tokenizer.encode(text))
-
-    df["token_count"] = df["text"].apply(count_t5_tokens)
-    longest_count = df["token_count"].max()
-
-    run_args.id_max_length = longest_count
-
+    # --- 5. RUN EVALUATOR ---
+    print("Initializing Evaluator...")
     evaluator = DSIEmailSearchEvaluator(
-        model="/enron-10k-mt5-base-DSI-Q-classic/checkpoint-15000/"
+        model=run_args.model_name,
+        run_args=run_args,
+        input_file=input_file,
+        restrict_decode_vocab=dummy_restrict_decode_vocab,
     )
+
+    print("Preparing Data...")
+    evaluator.prepare_data()
+
+    print("Running Retrieval Phase (Inference)...")
+    evaluator.run_retrieval_phase()
+
+    print("Computing Metrics...")
+    evaluator.compute_metrics()
+
+    print("Saving Results...")
+    evaluator.save_results(size="10k", experiment_type="base")
+
+    # Cleanup
+    if os.path.exists(input_file):
+        os.remove(input_file)
+
+#
+# if "__main__" == __name__:
+#     run_args = RunArguments(
+#         model_name="t5-small",  # Use a small model for testing
+#         task="DSI",
+#         table_name="test_emails",  # Dummy table name
+#         db_name="my_test_db",  # Dummy DB
+#         train_size=0.8,
+#         validate_size=0.1,
+#         test_size=0.1,
+#         id_max_length=10,  # Short length for speed
+#     )
+#
+#     table_name = run_args.table_name
+#
+#     df = load_db(run_args.table_name, run_args.db_name)
+#
+#     semantic_ids = df["elaborative_description"].map(type).eq(str).all()
+#
+#     tokenizer = AutoTokenizer.from_pretrained("t5-base")
+#
+#     def count_t5_tokens(text):
+#         return len(tokenizer.encode(text))
+#
+#     df["token_count"] = df["text"].apply(count_t5_tokens)
+#     longest_count = df["token_count"].max()
+#
+#     run_args.id_max_length = longest_count
+#
+#     evaluator = DSIEmailSearchEvaluator(
+#         model="/enron-10k-mt5-base-DSI-Q-classic/checkpoint-15000/"
+#     )

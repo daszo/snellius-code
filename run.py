@@ -34,7 +34,6 @@ from CE.utils.database import load_db, write_to_db
 
 from CE.tries import generate_trie_dict
 from CE.test.evaluation_BM25 import BM25EmailSearchEvaluator
-from CE.test.gr_evaluation import BM25EmailSearchEvaluator
 
 from sklearn.model_selection import train_test_split
 

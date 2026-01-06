@@ -153,11 +153,11 @@ class DSIPredictor:
 class DSIEmailSearchEvaluator(BaseMetricCalculator):
     def __init__(
         self,
-        model = None,
-        tokenizer = None,
         run_args,
         input_file: str,
         restrict_decode_vocab,
+        model = None,
+        tokenizer = None,
         eval_dir: str = "dsi_eval_cache",
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
@@ -341,8 +341,7 @@ if __name__ == "__main__":
     # --- 5. RUN EVALUATOR ---
     print("Initializing Evaluator...")
     evaluator = DSIEmailSearchEvaluator(
-        model=model,
-        tokenizer=tokenizer,
+        model=run_args.model_name,
         run_args=run_args,
         input_file=input_file,
         restrict_decode_vocab=dummy_restrict_decode_vocab
