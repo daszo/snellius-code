@@ -139,3 +139,8 @@ cache/
 wandb/
 
 *.db
+
+
+#BM 25 junk.
+corpus_data/
+indexes/
