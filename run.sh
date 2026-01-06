@@ -1,0 +1,1 @@
+sbatch -J training-10k-0 -t 24:00:00 -p gpu_a100 -N 1 --gpus=4 --gpus-per-node=4 --mail-type=BEGIN,END --mail-user=daniel.van.oosteroom@student.uva.nl --job-name=enron_dsi --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/%j_training.log run_scripts/reserve_train.sh

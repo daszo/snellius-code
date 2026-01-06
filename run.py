@@ -22,15 +22,25 @@ import numpy as np
 import torch
 import wandb
 from torch.utils.data import DataLoader
+import torch.distributed as dist
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Tuple
 import json
 from tqdm import tqdm
 import pandas as pd
+import os
 
 from CE.utils.database import load_db, write_to_db
 
+from CE.tries import generate_trie_dict
+from CE.test.evaluation_BM25 import BM25EmailSearchEvaluator
+from CE.test.gr_evaluation import BM25EmailSearchEvaluator
+
 from sklearn.model_selection import train_test_split
+
+import time
+import datetime
+from textwrap import dedent
 
 set_seed(313)
 
@@ -76,7 +86,7 @@ def make_compute_metrics(tokenizer, valid_ids):
             hits = np.where(np.array(filtered_rank_list)[:10] == label_id)[0]
             if len(hits) != 0:
                 hit_at_10 += 1
-                imf hits[0] == 0:
+                if hits[0] == 0:
                     hit_at_1 += 1
         return {
             "Hits@1": hit_at_1 / len(eval_preds.predictions),
@@ -93,12 +103,23 @@ class SplitArgs:
     query_type: str = "mixed"
     split_by: str = "query" # "email"
 
-def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
+def verify_distributed_setup():
+    if dist.is_initialized():
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+        local_rank = os.environ.get("LOCAL_RANK", "N/A")
+        gpu_name = torch.cuda.get_device_name(torch.cuda.current_device())
+                                                    
+        print(f"--- [Rank {rank}/{world_size}] Local Rank: {local_rank} | Device: {gpu_name} ---")
+    else:
+        print("Distributed environment not initialized.")
+
+def split_train_validate_test(run_args, local_rank: int) -> Tuple[Dict, bool, pd.DataFrame]:
     table_name = run_args.table_name
 
     df = load_db(run_args.table_name, run_args.db_name)
 
-    semantic_ids = df['B'].map(type).eq(str).all()
+    semantic_ids = df['elaborative_description'].map(type).eq(str).all()
     if semantic_ids is True:    
         # 1. Load the T5-base tokenizer
         # T5 uses a SentencePiece-based tokenizer
@@ -113,9 +134,9 @@ def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
         df['token_count'] = df['text'].apply(count_t5_tokens)
 
         # 4. Find the longest sentence
-        longest_idx = df['token_count'].idxmax()
+        longest_count = df['token_count'].max()
 
-        run_args.id_max_length = longest_idx
+        run_args.id_max_length = longest_count
 
     train_size = run_args.train_size
     validate_size = run_args.validate_size
@@ -138,36 +159,54 @@ def split_train_validate_test(run_args) -> Tuple[Dict, bool, pd.DataFrame]:
         random_state =42
     )
 
+    collumn_names = [
+        "body_clean_and_subject",
+        "text_rank_query",
+        "doctoquery"
+    ]
+
     file_names = {}
+
 
     for name, target_df in [("train", df_train),
                             ("validate", df_validate),
                             ("test", df_test)
-                        ]:
+                            ]:
 
-        output_filename = f"{run_args.train_file}/{name}.{table_name}.docTquery"
+        output_filename = f"data/{name}.{table_name}.docTquery"
 
         file_names[name] = output_filename
+        if local_rank == 0:
+            print(f"Writing DataFrame to {output_filename}...")
 
-        print(f"Writing DataFrame to {output_filename}...")
+            with open(output_filename, "w") as f:
+                # Iterate over the rows of the DataFrame
+                for _, row in tqdm(
+                    target_df.iterrows(), total=len(target_df), desc="Writing file"
+                ):
+                    base_dict = row.to_dict()
 
-        with open(output_filename, "w") as f:
-            # Iterate over the rows of the DataFrame
-            for _, row in tqdm(
-                target_df.iterrows(), total=len(df), desc="Writing file"
-            ):
-                # row.to_json() serializes the Series (row) to a JSON string.
-                # It's important to set 'orient="columns"' to get a simple key:value object
-                # without an extra index key, but row.to_dict() is often simpler.
-                
-                # Convert the row (which is a Series) to a dictionary
-                row_dict = row.to_dict()
-                
-                # Dump the dictionary to a JSON string
-                jitem = json.dumps(row_dict)
-                
-                # Write the JSON string followed by a newline
-                f.write(jitem + "\n")
+
+                    # Iterate through the 4 options to create 4 distinct entries
+                    for option in collumn_names:
+                        # Copy the dictionary to avoid overwriting previous iterations
+                        item_dict = base_dict.copy()
+
+                        text_id = str(item_dict['elaborative_description'])
+                        
+                        new_item_dict = {}
+                        
+                        # Create the 'text' column by combining description and the specific option
+                        new_item_dict['text'] = f"{item_dict[option]}"
+                        new_item_dict['text_id'] = text_id
+                        
+                        # Dump the dictionary to a JSON string
+                        jitem = json.dumps(new_item_dict)
+
+                        # Write the JSON string followed by a newline
+                        f.write(jitem + "\n")
+    if dist.is_initialized():
+        dist.barrier()
 
     print("File writing complete.")
 
@@ -180,8 +219,11 @@ def main():
     parser = HfArgumentParser((TrainingArguments, RunArguments))
     training_args, run_args = parser.parse_args_into_dataclasses()
 
+    verify_distributed_setup()
+
     # We use wandb logger: https://wandb.ai/site.
-    if training_args.local_rank == 0:  # only on main process
+    local_rank = training_args.local_rank
+    if local_rank == 0:  # only on main process
         # Initialize wandb run
         wandb.login()
         wandb.init(project="DSI", name=training_args.run_name)
@@ -246,11 +288,11 @@ def main():
 
     elif run_args.task == "DSI":
 
-        run_semantic = False
+        run_semantic = True
 
         if table_name is not None and db_name is not None:
 
-            file_names, run_semantic, df = split_train_validate_test(run_args)
+            file_names, run_semantic, df = split_train_validate_test(run_args, local_rank)
 
             run_args.train_file = file_names["train"]
             run_args.valid_file = file_names["validate"]
@@ -285,7 +327,7 @@ def main():
         # TODO: implement beam first search
         ################################################################
         # docid generation constrain, we only generate integer docids.
-        if run_semantic is False:
+        if run_semantic == False:
             SPIECE_UNDERLINE = "▁"
             INT_TOKEN_IDS = []
             for token, id in tokenizer.get_vocab().items():
@@ -300,11 +342,14 @@ def main():
 
             def restrict_decode_vocab(batch_idx, prefix_beam):
                 return INT_TOKEN_IDS
-        else:
-            # set to None for now, will calculate later.
-            restrict_decode_vocab = None
-
         ################################################################
+        else:
+            decoder_trie = generate_trie_dict(df, tokenizer)
+
+            def restrict_decode_vocab(batch_idx, prefix_beam):
+                return decoder_trie.get(prefix_beam.tolist())
+
+        model.resize_token_embeddings(len(tokenizer))
 
         trainer = DSITrainer(
             model=model,
@@ -322,9 +367,30 @@ def main():
             ),
             restrict_decode_vocab=restrict_decode_vocab ,
             id_max_length=run_args.id_max_length,
-            df=df if run_semantic else None
         )
-        trainer.train()
+
+        start_time = time.time()
+        train_result = trainer.train()
+        end_time = time.time()
+
+        duration_seconds = end_time - start_time
+
+        td = datetime.timedelta(seconds=duration_seconds)
+
+        total_batches = train_result.global_step
+
+        metrics = train_result.metrics
+        final_epoch = metrics.get("epoch")
+
+        write= dedent(f"""
+        total_time = {td}
+        batches = {total_batches}
+        final_epoch = {final_epoch}
+        """)
+
+        with open(f"logs/{training_args.run_name}_{datetime.datetime.now()}.txt", 'w') as f:
+            f.write(write)
+
 
     elif run_args.task == "generation":
         generate_dataset = GenerateDataset(
@@ -352,7 +418,7 @@ def main():
             max_length=run_args.q_max_length,
         )
 
-        if table_name != None:
+        if table_name is not None:
             df_db = generate_dataset.db_df
             data = []
 
@@ -366,7 +432,7 @@ def main():
 
             df_pred = pd.DataFrame(data)
 
-            df_result = df_db.merge(df_pred, on="mid", how="left")
+            df_result = df_db.merge(df_pred, left_index=True, right_on="mid", how="left")
 
             destination_table_name = (
                 f"{table_name}_d2q_q{run_args.num_return_sequences}"
@@ -386,6 +452,43 @@ def main():
                         query = fast_tokenizer.decode(tokens, skip_special_tokens=True)
                         jitem = json.dumps({"text_id": docid.item(), "text": query})
                         f.write(jitem + "\n")
+
+    elif run_args.task == "test":
+
+            file_names, run_semantic, df = split_train_validate_test(run_args, local_rank)
+
+            run_args.test_file = file_names["test"]
+        
+            decoder_trie = generate_trie_dict(df, tokenizer)
+
+            def restrict_decode_vocab(batch_idx, prefix_beam):
+                return decoder_trie.get(prefix_beam.tolist())
+
+        model,
+        tokenizer,
+        device,
+        restrict_decode_vocab,
+        id_max_length=20,
+        batch_size=8,
+
+        trainer = DSITrainer(
+            model=model,
+            tokenizer=tokenizer,
+            device=None,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=valid_dataset,
+            data_collator=IndexingCollator(
+                tokenizer,
+                padding="longest",
+            ),
+            compute_metrics=make_compute_metrics(
+                fast_tokenizer, train_dataset.valid_ids
+            ),
+            restrict_decode_vocab=restrict_decode_vocab ,
+            id_max_length=run_args.id_max_length,
+        )
+
 
     else:
         raise NotImplementedError(

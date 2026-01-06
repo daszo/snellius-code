@@ -28,7 +28,7 @@ class IndexingTrainDataset(Dataset):
         self.total_len = len(self.train_data)
         self.valid_ids = set()
         for data in tqdm(self.train_data):
-            self.valid_ids.add(str(data["text_id"]))
+            self.valid_ids.add(str(data["elaborative_description"]))
 
     def __len__(self):
         return self.total_len
@@ -83,10 +83,10 @@ class GenerateDataset(Dataset):
                 df = load_db(table_name)
                 self.db_df = df
 
-                for index, row in df.iterrows():
+                for mid, row in df.iterrows():
                     self.data.append(
                         (
-                        row["mid"],
+                        mid,
                         f"subject: {row['subject']} body: {row['body_clean']}",
                         )
                     )

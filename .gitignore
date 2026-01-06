@@ -131,4 +131,16 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+data/
+
 local_models/
+models/
+cache/
+wandb/
+
+*.db
+
+
+#BM 25 junk.
+corpus_data/
+indexes/
