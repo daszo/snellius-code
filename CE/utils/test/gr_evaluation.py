@@ -5,12 +5,12 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from typing import List, Dict, Any, Union
 from tqdm import tqdm
-from database import save_result
 from data import IndexingCollator  # Assuming this exists in your project
-from general import BaseMetricCalculator
 from run import RunArguments
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-from run import generate_trie_dict
+from CE.utils.test.general import BaseMetricCalculator
+from CE.utils.database import load_db, write_to_db, save_result
+from CE.tries import generate_trie_dict
 
 
 class DSIEvalDataset(Dataset):
@@ -43,12 +43,7 @@ class DSIEvalDataset(Dataset):
         labels = self.tokenizer(
             str(item["text_id"]), truncation=True, max_length=64, padding=False
         )
-        return {
-            "input_ids": inputs["input_ids"],
-            "attention_mask": inputs["attention_mask"],
-            "labels": labels["input_ids"],
-        }
-
+        return (inputs["input_ids"], str(item["text_id"])) 
 
 class DSIPredictor:
     """Lightweight inference wrapper replacing the Trainer."""
