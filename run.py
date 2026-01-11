@@ -33,7 +33,6 @@ import os
 from CE.utils.database import load_db, write_to_db
 
 from CE.tries import generate_trie_dict
-from CE.test.evaluation_BM25 import BM25EmailSearchEvaluator
 
 from sklearn.model_selection import train_test_split
 
@@ -454,6 +453,7 @@ def main():
 
     elif run_args.task == "test":
 
+            from CE.utils.test.evaluation_BM25 import BM25EmailSearchEvaluator
             file_names, run_semantic, df = split_train_validate_test(run_args, local_rank)
 
             run_args.test_file = file_names["test"]
@@ -463,30 +463,30 @@ def main():
             def restrict_decode_vocab(batch_idx, prefix_beam):
                 return decoder_trie.get(prefix_beam.tolist())
 
-        model,
-        tokenizer,
-        device,
-        restrict_decode_vocab,
-        id_max_length=20,
-        batch_size=8,
-
-        trainer = DSITrainer(
-            model=model,
-            tokenizer=tokenizer,
-            device=None,
-            args=training_args,
-            train_dataset=train_dataset,
-            eval_dataset=valid_dataset,
-            data_collator=IndexingCollator(
-                tokenizer,
-                padding="longest",
-            ),
-            compute_metrics=make_compute_metrics(
-                fast_tokenizer, train_dataset.valid_ids
-            ),
-            restrict_decode_vocab=restrict_decode_vocab ,
-            id_max_length=run_args.id_max_length,
-        )
+#        model,
+#        tokenizer,
+#        device,
+#        restrict_decode_vocab,
+#        id_max_length=20,
+#        batch_size=8,
+#
+#        trainer = DSITrainer(
+#            model=model,
+#            tokenizer=tokenizer,
+#            device=None,
+#            args=training_args,
+#            train_dataset=train_dataset,
+#            eval_dataset=valid_dataset,
+#            data_collator=IndexingCollator(
+#                tokenizer,
+#                padding="longest",
+#            ),
+#            compute_metrics=make_compute_metrics(
+#                fast_tokenizer, train_dataset.valid_ids
+#            ),
+#            restrict_decode_vocab=restrict_decode_vocab ,
+#            id_max_length=run_args.id_max_length,
+#        )
 
 
     else:
