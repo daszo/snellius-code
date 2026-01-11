@@ -120,19 +120,19 @@ def split_train_validate_test(run_args, local_rank: int) -> Tuple[Dict, bool, pd
 
     semantic_ids = df['elaborative_description'].map(type).eq(str).all()
     if semantic_ids is True:    
-        # 1. Load the T5-base tokenizer
+        # Load the T5-base tokenizer
         # T5 uses a SentencePiece-based tokenizer
         tokenizer = AutoTokenizer.from_pretrained("t5-base")
 
-        # 2. Function to count tokens
+        # Function to count tokens
         # T5 automatically adds an end-of-sequence token (</s>), so this count includes that.
         def count_t5_tokens(text):
             return len(tokenizer.encode(text))
 
-        # 3. Apply to your dataframe column (assuming column name is 'text')
+        # Apply to your dataframe column (assuming column name is 'text')
         df['token_count'] = df['text'].apply(count_t5_tokens)
 
-        # 4. Find the longest sentence
+        # Find the longest sentence
         longest_count = df['token_count'].max()
 
         run_args.id_max_length = longest_count
@@ -148,7 +148,7 @@ def split_train_validate_test(run_args, local_rank: int) -> Tuple[Dict, bool, pd
 
     df_train, df_tmp = train_test_split(
         df, 
-        train_size=0.8, 
+        train_size=train_size, 
         random_state=42
     )
 

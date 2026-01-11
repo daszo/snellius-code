@@ -73,3 +73,54 @@ def save_result(data_tuple, db_path: str = DB_PATH):
 # Example usage:
 # data = ('BERT-Base', '110M', 'retrieval', 'v1.2', 0.45, 0.62, 0.31, 0.88)
 # save_result('experiments.db', data)
+def finish_clean_message_and_drop_folders(db_path: str = DB_PATH):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # 1. Define the SQL for dropping/creating the base folder view (Run this FIRST)
+    sql_drop_folders = """
+    DROP VIEW IF EXISTS v_DroppedFolders;
+
+    CREATE VIEW v_DroppedFolders AS
+        SELECT
+        m.*,
+        s.similarities
+        FROM Message m
+        LEFT JOIN similarities s ON m.mid = s.mid
+        WHERE folder NOT IN (
+            'deleted_items',
+            'calendar',
+            'contacts',
+            'notes',
+            'drafts',
+            'outbox',
+            'discussion_threads',
+            'all_documents',
+            'notes_inbox'
+        );
+    """
+
+    # 2. Define the SQL for the cleaned messages view (Run this SECOND)
+    sql_clean_messages = """
+    DROP VIEW IF EXISTS v_CleanMessages;
+
+    CREATE VIEW v_CleanMessages AS
+    SELECT * FROM (
+        SELECT *
+        FROM v_DroppedFolders
+        WHERE clean_length_word > 30
+        GROUP BY subject, body
+    );
+    """
+
+    # 3. Execution (Assuming 'conn' is your database connection)
+    # conn = sqlite3.connect('your_database.db')
+    cursor = conn.cursor()
+
+    # Execute drop_folders first as requested (and because v_CleanMessages depends on it)
+    cursor.executescript(sql_drop_folders)
+
+    # Execute cleaned_view second
+    cursor.executescript(sql_clean_messages)
+
+    conn.commit()
