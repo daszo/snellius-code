@@ -11,21 +11,20 @@ def get_keywords_safe(text, num_words=8):
     Summa throws an IndexError if the text has fewer tokens than 'words'.
     """
     if not isinstance(text, str) or not text.strip():
-        return []
+        return ""
     try:
         # Summa returns a newline-separated string
         kw_str = keywords.keywords(text, words=num_words)
-        return kw_str.split("\n") if kw_str else []
+        return " ".join(kw_str.split("\n")) if kw_str else ""
     except IndexError:
         kw_str = keywords.keywords(text)
-        return kw_str.split("\n") if kw_str else []
+        return " ".join(kw_str.split("\n")) if kw_str else ""
     except Exception:
-        return text.split()
+        return " ".join(text.split())
 
 
 def calculate_query_and_ed(row):
 
-    # try:
     text = f"{row['subject']} \n {row['body_clean']}"
 
     row["text_rank_query"] = summarizer.summarize(text, words=15)
