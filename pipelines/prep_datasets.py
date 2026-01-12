@@ -44,5 +44,5 @@ def main():
 
 
 if __name__ == "__main__":
-    # main()
-    create_10k_100k_dataset("Message")
+    main()
+    # create_10k_100k_dataset("Message")

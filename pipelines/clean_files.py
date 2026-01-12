@@ -118,7 +118,7 @@ def clean_email_body(text):
     return text.strip()
 
 
-def clean_email_bodies_pipeline(DB_PATH="enron.db"):
+def clean_email_bodies_pipeline(DB_PATH="data/enron.db"):
     print("starting to load")
 
     conn = sqlite3.connect(DB_PATH)
