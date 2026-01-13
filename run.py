@@ -150,8 +150,14 @@ def split_train_validate_test(run_args, local_rank: int) -> Tuple[Dict, bool, pd
     if total_proportion > 1 or total_proportion < 0.98:
         raise ValueError(f"Total {total_proportion} is more then 1, fix your sizes. train_size {train_size}, validate_size {validate_size}, test_size {test_size}")
 
+    bodies = df[["body_clean_and_subject","elaborative_description"]]
+
+
+    df.drop(collumns=["body_clean_and_subject"], inplace=True)
+
+
     df_train, df_tmp = train_test_split(
-        df, 
+        df[["text_rank_query", "doctoquery", "elaborative_description" ]],
         train_size=train_size, 
         random_state=42
     )
@@ -163,13 +169,14 @@ def split_train_validate_test(run_args, local_rank: int) -> Tuple[Dict, bool, pd
     )
 
     collumn_names = [
-        "body_clean_and_subject",
         "text_rank_query",
         "doctoquery"
     ]
 
     file_names = {}
 
+    
+    # bodies.rename(collumns={"body_clean_and_subject": "text", "elaborative_descripton": "text_id"})
 
     for name, target_df in [("train", df_train),
                             ("validate", df_validate),
@@ -208,6 +215,28 @@ def split_train_validate_test(run_args, local_rank: int) -> Tuple[Dict, bool, pd
 
                         # Write the JSON string followed by a newline
                         f.write(jitem + "\n")
+                if name == "train":
+                    for _, row in tqdm(
+                        bodies.iterrows(), total=len(bodies), desc="Writing file"
+                    ):
+
+                        base_dict = row.to_dict()
+                        item_dict = base_dict.copy()
+
+                        text_id = str(item_dict['elaborative_description'])
+                        
+                        new_item_dict = {}
+                        
+                        # Create the 'text' column by combining description and the specific option
+                        new_item_dict['text'] = f"{item_dict["body_clean_and_subject"]}"
+                        new_item_dict['text_id'] = text_id
+                        
+                        # Dump the dictionary to a JSON string
+                        jitem = json.dumps(new_item_dict)
+
+                        # Write the JSON string followed by a newline
+                        f.write(jitem + "\n")
+                        
     if dist.is_initialized():
         dist.barrier()
 
