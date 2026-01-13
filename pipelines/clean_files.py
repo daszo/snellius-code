@@ -72,7 +72,6 @@ def prune_signature_footer(text: str) -> str:
         r"\b(fax|cell|mobile|office|w|c|h)\b",  # Phone labels
         r"\b(Street|St|Ave|Rd|Blvd|Suite|Floor|Haymarket)\b",  # Address markers (Added 'Haymarket')
         r"\b\d{5}\b",  # US Zip codes
-        # --- NEW: UK Postcode Regex ---
         # Matches formats like "SW1Y 4RX", "W1 1AA", "EC1A 1BB"
         r"\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b",
         # --- NEW: Major Enron Office Cities (Risky generally, safe for Footer Pruning) ---
@@ -221,9 +220,17 @@ def clean_email_bodies_pipeline(DB_PATH="data/enron.db"):
     cleaned_subject = (
         df["subject"]
         .astype(str)
-        .str.replace(r"^Re:\s*", "", case=False, regex=True)
+        # Regex breakdown:
+        # ^             : Start of string
+        # (?:           : Start non-capturing group
+        # Re|Fw|Fwd|For : Match any of these prefixes
+        # )             : End group
+        # \s*:\s* : Match colon with optional whitespace
+        # +             : Match one or more times (handles "Re: Fwd: Re:")
+        .str.replace(r"^(?:(?:Re|Fw|Fwd|For)\s*:\s*)+", "", case=False, regex=True)
         .str.strip()
     )
+    df["subject"] = cleaned_subject
 
     # 1. Determine the separator: If it ends with '.', use " \n", else ". \n"
     separators = np.where(cleaned_subject.str.endswith("."), "\n", ".\n")
