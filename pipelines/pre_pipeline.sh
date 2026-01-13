@@ -9,6 +9,8 @@
 #SBATCH --mail-user=daniel.van.oosteroom@student.uva.nl
 #SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/%j_training.log
 
+exec > >(ts '[%Y-%m-%d %H:%M:%S]') 2>&1
+
 echo "Starting pipeline"
 echo "1. data cleaning and textrank"
 export PYTHONUNBUFFERED=1 

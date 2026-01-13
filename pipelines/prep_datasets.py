@@ -22,7 +22,7 @@ def create_10k_100k_dataset(table_name: str = "full_text_rank_d2q_q1"):
 
     n10k_sampled_df = n10k_sampled_df.drop(columns=["strata_key"])
 
-    write_to_db(n10k_sampled_df, "N10k_")
+    write_to_db(n10k_sampled_df, "N10k")
 
     n100k_sampled_df, _ = train_test_split(
         df_valid, train_size=100000, stratify=df_valid["strata_key"], random_state=42
@@ -30,7 +30,7 @@ def create_10k_100k_dataset(table_name: str = "full_text_rank_d2q_q1"):
 
     n100k_sampled_df = n100k_sampled_df.drop(columns=["strata_key"])
 
-    write_to_db(n100k_sampled_df, "N100k_")
+    write_to_db(n100k_sampled_df, "N100k")
 
 
 def main():
