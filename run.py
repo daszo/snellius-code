@@ -66,6 +66,11 @@ class RunArguments:
     query_type: Optional[str] = "mixed"
     split_by: Optional[str] = "query" # "email"
 
+    # --- settings for saving ---
+    save_size: str =field(default="N10k"),
+    save_experiment_type: str =field(default="base"),
+    save_version: str =field(default="v1.0")
+
 
 def make_compute_metrics(tokenizer, valid_ids):
 
@@ -294,8 +299,7 @@ def main():
 
             run_args.train_file = file_names["train"]
             run_args.valid_file = file_names["validate"]
-
-
+            run_args.test_file = file_names["test"]
 
 
         if table_name is not None and db_name is None:
@@ -388,6 +392,39 @@ def main():
 
         with open(f"logs/{training_args.run_name}_{datetime.datetime.now()}.txt", 'w') as f:
             f.write(write)
+        
+        from CE.utils.test.gr_evaluation import DSIEmailSearchEvaluator
+
+        run_args = RunArguments(
+            model_name="models/enron-10k-mt5-base-DSI-Q-classic/checkpoint-15000",
+            task="DSI",
+            db_name="data/enron.db",
+            train_size=0.8,
+            validate_size=0.1,
+            test_size=0.1,
+            id_max_length=10,
+            max_length=64,
+            table_name="N10k_text_rank_d2q_q1",
+        )
+
+        #df = load_db(run_args.table_name, run_args.db_name)
+
+
+        evaluator = DSIEmailSearchEvaluator(
+            trainer=trainer, run_args=run_args, input_file=run_args.test_file, df=df
+        )
+
+        print("Preparing Data...")
+        evaluator.prepare_data()
+
+        print("Running Retrieval Phase (Inference)...")
+        evaluator.run_retrieval_phase()
+
+        print("Computing Metrics...")
+        evaluator.compute_metrics()
+
+        print("Saving Results...")
+        evaluator.save_results(size=run_args.save_size, experiment_type=run_args.save_experiment_type, version=run_args.save_version)
 
 
     elif run_args.task == "generation":
@@ -450,6 +487,7 @@ def main():
                         query = fast_tokenizer.decode(tokens, skip_special_tokens=True)
                         jitem = json.dumps({"text_id": docid.item(), "text": query})
                         f.write(jitem + "\n")
+
 
     elif run_args.task == "test":
 
