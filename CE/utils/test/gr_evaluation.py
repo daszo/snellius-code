@@ -110,6 +110,7 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
         self,
         run_args,
         input_file: str,
+        trainer=None,
         restrict_decode_vocab=None,
         df=None,
         model=None,
@@ -117,37 +118,45 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
         eval_dir: str = "dsi_eval_cache",
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
-
-        tokenizer = AutoTokenizer.from_pretrained(run_args.model_name)
-        if isinstance(model, str) or (model is None and run_args.model_name != ""):
-            model = AutoModelForSeq2SeqLM.from_pretrained(model or run_args.model_name)
+        if trainer is None:
             tokenizer = AutoTokenizer.from_pretrained(run_args.model_name)
+            if isinstance(model, str) or (model is None and run_args.model_name != ""):
+                model = AutoModelForSeq2SeqLM.from_pretrained(model or run_args.model_name)
+                tokenizer = AutoTokenizer.from_pretrained(run_args.model_name)
 
-            if df is None:
-                raise ValueError(
-                    "no df provided to build the tree for the restric decode vocab fn"
-                )
+                if df is None:
+                    raise ValueError(
+                        "no df provided to build the tree for the restric decode vocab fn"
+                    )
 
+                if restrict_decode_vocab is None:
+                    del restrict_decode_vocab
+                    decoder_trie = generate_trie_dict(df, tokenizer)
+
+                    def restrict_decode_vocab(batch_idx, prefix_beam):
+                        return decoder_trie.get(prefix_beam.tolist())
+
+            if model is None and (run_args is None or run_args.model_name == ""):
+                raise ValueError("no model provided")
+
+            self.model = model
+            self.tokenizer = tokenizer
             if restrict_decode_vocab is None:
-                del restrict_decode_vocab
-                decoder_trie = generate_trie_dict(df, tokenizer)
-
-                def restrict_decode_vocab(batch_idx, prefix_beam):
-                    return decoder_trie.get(prefix_beam.tolist())
-
-        if model is None and (run_args is None or run_args.model_name == ""):
-            raise ValueError("no model provided")
-
-        self.model = model
-        self.tokenizer = tokenizer
+                raise ValueError("cant build the restrict_decode_vocab_fn, no model path is given. Provide the function or use the model path method")
+            self.restrict_decode_vocab = restrict_decode_vocab
+            self.trainer = None
+        else:
+            self.trainer = trainer
+            self.model = None
+            if tokenizer is None:
+                raise ValueError("Tokenizer should be set if trainer is given.")
+            self.tokenizer = tokenizer
+            self.restrict_decode_vocab = None
 
         self.run_args = run_args
         self.input_file = input_file
         self.eval_dir = eval_dir
         self.device = device
-        if restrict_decode_vocab is None:
-            raise ValueError("cant build the restrict_decode_vocab_fn, no model path is given. Provide the function or use the model path method")
-        self.restrict_decode_vocab = restrict_decode_vocab
 
         # DSI specific components
         self.id_max_length = getattr(run_args, "id_max_length", 20)
@@ -200,18 +209,22 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
 
         collator = IndexingCollator(
             tokenizer=self.tokenizer,
-            padding="longest",  # Matches your 'longest' padding strategy
+            padding="longest",  
         )
 
-        # 2. Setup Predictor
-        predictor = DSIPredictor(
-            model=self.model,
-            tokenizer=self.tokenizer,
-            device=self.device,
-            restrict_decode_vocab=self.restrict_decode_vocab,
-            id_max_length=self.id_max_length,
-            batch_size=self.batch_size,
-        )
+        if trainer := self.trainer:
+            predictor = trainer 
+        else:
+        
+            # 2. Setup Predictor
+            predictor = DSIPredictor(
+                model=self.model,
+                tokenizer=self.tokenizer,
+                device=self.device,
+                restrict_decode_vocab=self.restrict_decode_vocab,
+                id_max_length=self.id_max_length,
+                batch_size=self.batch_size,
+            )
 
         # 3. Run Inference
         predictions, labels = predictor.predict(dataset, collator)
