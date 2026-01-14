@@ -6,27 +6,31 @@ from typing import List, Dict
 from pyserini.search.lucene import LuceneSearcher
 from CE.utils.database import save_result
 from CE.utils.test.general import BaseMetricCalculator
+from CE.utils.database import load_db
 
 
 class BM25EmailSearchEvaluator(BaseMetricCalculator):
     def __init__(
         self,
         input_file,
+        table_name,
         corpus_dir="corpus_data",
         index_dir="indexes/enron_index",
         threads=4,
     ):
+        self.table_name = table_name
         self.input_file = input_file
         self.corpus_dir = corpus_dir
         self.index_dir = index_dir
         self.threads = threads
 
         self.mid_to_textid = {}
-        self.queries_textrank = []
-        self.queries_d2q = []
+        self.queries = []
+        # self.queries_textrank = []
+        # self.queries_d2q = []
 
         # Phase 1 storage: Raw Ranks
-        self.execution_results = {"textrank": [], "d2q": []}
+        self.execution_results = []
         self.final_metrics = []
 
     def prepare_data(self):
@@ -34,31 +38,39 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
             shutil.rmtree(self.corpus_dir)
         os.makedirs(self.corpus_dir)
 
-        seen_mids = set()
-        with open(self.input_file, "r", encoding="utf-8") as fin, open(
-            os.path.join(self.corpus_dir, "docs.jsonl"), "w", encoding="utf-8"
-        ) as fout:
+        with open(self.input_file, "r", encoding="utf-8") as fin:
             for line in fin:
                 data = json.loads(line)
-                mid, text_id, body = (
-                    str(data.get("mid")),
+                text_id, body = (
                     data.get("text_id"),
-                    data.get("subject") + "\n" + data.get("body_clean", ""),
+                    data.get("body_clean_and_subject", ""),
                 )
 
-                if mid not in seen_mids:
-                    fout.write(json.dumps({"id": mid, "contents": body}) + "\n")
-                    seen_mids.add(mid)
-                    self.mid_to_textid[mid] = text_id
+                # fout.write(json.dumps({"id": mid, "contents": body}) + "\n")
+                # self.mid_to_textid[mid] = text_id
+                if data.get("text"):
+                    self.queries.append(
+                        {"target_text_id": text_id, "query": data["text"]}
+                    )
 
-                if data.get("text_rank_query"):
-                    self.queries_textrank.append(
-                        {"target_text_id": text_id, "query": data["text_rank_query"]}
-                    )
-                if data.get("doctoquery"):
-                    self.queries_d2q.append(
-                        {"target_text_id": text_id, "query": data["doctoquery"]}
-                    )
+                # if data.get("text_rank_query"):
+                #     self.queries_textrank.append(
+                #         {"target_text_id": text_id, "query": data["text_rank_query"]}
+                #     )
+                # if data.get("doctoquery"):
+                #     self.queries_d2q.append(
+                #         {"target_text_id": text_id, "query": data["doctoquery"]}
+                # )
+        with open(
+            os.path.join(self.corpus_dir, "docs.jsonl"), "w", encoding="utf-8"
+        ) as fout:
+
+            df = load_db(self.table_name)
+            for _, row in df.iterrows():
+                mid = row["mid"]
+                body = row["body_clean_and_subject"]
+                fout.write(json.dumps({"id": mid, "contents": body}) + "\n")
+                self.mid_to_textid[mid] = row["elaborative_description"]
 
     def build_index(self):
         if os.path.exists(self.index_dir):
@@ -88,43 +100,28 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
         searcher = LuceneSearcher(self.index_dir)
         searcher.set_bm25(k1=k1, b=b)
 
-        for key, query_set in [
-            ("textrank", self.queries_textrank),
-            ("d2q", self.queries_d2q),
-        ]:
-            ranks = []
-            for q in query_set:
-                hits = searcher.search(q["query"], k=20)
-                rank = float("inf")
-                for i, hit in enumerate(hits):
-                    if self.mid_to_textid.get(hit.docid) == q["target_text_id"]:
-                        rank = i + 1
-                        break
-                ranks.append(rank)
-            self.execution_results[key] = ranks
+        ranks = []
+        for q in self.queries:
+            hits = searcher.search(q["query"], k=20)
+            rank = float("inf")
+            for i, hit in enumerate(hits):
+                if self.mid_to_textid.get(hit.docid) == q["target_text_id"]:
+                    rank = i + 1
+                    break
+            ranks.append(rank)
+        self.execution_results = ranks
 
     def compute_metrics(self):
         """Phase 2: Calculate metrics from stored ranks."""
-        all_type_metrics = []
-        for key in ["textrank", "d2q"]:
-            ranks = self.execution_results[key]
-            if not ranks:
-                continue
+        ranks = self.execution_results
 
-            mrr3 = self.calculate_mrr(ranks, 3)
-            mrr20 = self.calculate_mrr(ranks, 20)
-            hits1 = self.calculate_hits(ranks, 1)
-            hits10 = self.calculate_hits(ranks, 10)
+        mrr3 = self.calculate_mrr(ranks, 3)
+        mrr20 = self.calculate_mrr(ranks, 20)
+        hits1 = self.calculate_hits(ranks, 1)
+        hits10 = self.calculate_hits(ranks, 10)
 
-            all_type_metrics.append([mrr3, mrr20, hits1, hits10])
-            print(f"\nResults for {key}: MRR@3: {mrr3:.4f}, Hits@1: {hits1:.4f}")
-
-        # Aggregate across both query types (averaging the sets)
-        if len(all_type_metrics) == 2:
-            self.final_metrics = [
-                f"{(all_type_metrics[0][i] + all_type_metrics[1][i]) / 2:.4f}"
-                for i in range(4)
-            ]
+        self.final_metrics = [f"{value:.4f}" for value in [mrr3, mrr20, hits1, hits10]]
+        print(f"\nResults for: MRR@3: {mrr3:.4f}, Hits@1: {hits1:.4f}")
 
     def save_results(self, size: str, experiment_type: str, version: str = "v1.0"):
         data = ["BM25-base", size, experiment_type, version] + self.final_metrics
@@ -132,9 +129,11 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
 
 
 if __name__ == "__main__":
-    evaluator = BM25EmailSearchEvaluator(input_file="data/test.N10k_text_rank_d2q_q1.docTquery")
+    evaluator = BM25EmailSearchEvaluator(
+        input_file="data/test.N10k.docTquery", table_name="N10k"
+    )
     evaluator.prepare_data()
     evaluator.build_index()
     evaluator.run_retrieval_phase()
     evaluator.compute_metrics()
-    evaluator.save_results("10k", "base")
+    evaluator.save_results("10k", "no_thread")
