@@ -7,6 +7,7 @@ from pyserini.search.lucene import LuceneSearcher
 from CE.utils.database import save_result
 from CE.utils.test.general import BaseMetricCalculator
 from CE.utils.database import load_db
+import argparse
 
 
 class BM25EmailSearchEvaluator(BaseMetricCalculator):
@@ -129,8 +130,16 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
 
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="A simple argument parser")
+
+    # Positional argument (Required)
+    parser.add_argument("table_name", help="table name")
+    args = parser.parse_args()
+    table_name = args.table_name
+
     evaluator = BM25EmailSearchEvaluator(
-        input_file="data/test.N10k.docTquery", table_name="N10k"
+        input_file=f"data/test.{table_name}.docTquery", table_name=table_name
     )
     evaluator.prepare_data()
     evaluator.build_index()

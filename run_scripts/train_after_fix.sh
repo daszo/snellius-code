@@ -39,7 +39,7 @@ torchrun --nproc_per_node=2 run.py \
 	--model_name "$ENV_PATH/local_models/google/t5-base" \
 	--run_name "enron-10k-t5-base-DSI-Q-classicv1.2" \
         --max_length 512 \
-        --output_dir "$ENV_PATH/models/enron-10k-mt5-base-DSI-Q-classicv1.2" \
+        --output_dir "$ENV_PATH/models/enron-10k-t5-base-DSI-Q-classicv1.2" \
         --learning_rate 0.00005 \
         --warmup_steps 5000 \
         --per_device_train_batch_size 15 \
