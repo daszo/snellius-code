@@ -25,13 +25,17 @@ def create_10k_100k_dataset(table_name: str = "full_text_rank_d2q_q1"):
 
     write_to_db(n10k_sampled_df, "N10k")
 
-    n100k_sampled_df, _ = train_test_split(
-        df_valid, train_size=82000, stratify=df_valid["strata_key"], random_state=42
-    )
+   # n100k_sampled_df, _ = train_test_split(
+   #     df_valid, train_size=82000, stratify=df_valid["strata_key"], random_state=42
+   # )
 
-    n100k_sampled_df = n100k_sampled_df.drop(columns=["strata_key"])
+   # n100k_sampled_df = n100k_sampled_df.drop(columns=["strata_key"])
 
-    write_to_db(n100k_sampled_df, "N82k")
+   # write_to_db(n100k_sampled_df, "N82k")
+
+    df_valid = df_valid.drop(columns=["strata_key"])
+
+    write_to_db(df_valid, "N93k")
 
 
 def main():
