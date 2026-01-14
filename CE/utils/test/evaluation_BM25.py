@@ -69,7 +69,7 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
 
             df = load_db(self.table_name)
             for _, row in df.iterrows():
-                mid = row["mid"]
+                mid = str(row["mid"])
                 body = row["body_clean_and_subject"]
                 fout.write(json.dumps({"id": mid, "contents": body}) + "\n")
                 self.mid_to_textid[mid] = row["elaborative_description"]
