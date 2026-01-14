@@ -8,6 +8,7 @@ from CE.utils.database import save_result
 from CE.utils.test.general import BaseMetricCalculator
 from CE.utils.database import load_db
 import argparse
+import sys
 
 
 class BM25EmailSearchEvaluator(BaseMetricCalculator):
@@ -77,7 +78,7 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
         if os.path.exists(self.index_dir):
             shutil.rmtree(self.index_dir)
         cmd = [
-            "python",
+            sys.executable,
             "-m",
             "pyserini.index.lucene",
             "--collection",
