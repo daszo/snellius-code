@@ -153,7 +153,7 @@ def split_train_validate_test(run_args, local_rank: int) -> Tuple[Dict, bool, pd
     bodies = df[["body_clean_and_subject","elaborative_description"]]
 
 
-    df.drop(collumns=["body_clean_and_subject"], inplace=True)
+    df.drop(columns=["body_clean_and_subject"], inplace=True)
 
 
     df_train, df_tmp = train_test_split(
@@ -228,7 +228,7 @@ def split_train_validate_test(run_args, local_rank: int) -> Tuple[Dict, bool, pd
                         new_item_dict = {}
                         
                         # Create the 'text' column by combining description and the specific option
-                        new_item_dict['text'] = f"{item_dict["body_clean_and_subject"]}"
+                        new_item_dict['text'] = f"{item_dict['body_clean_and_subject']}"
                         new_item_dict['text_id'] = text_id
                         
                         # Dump the dictionary to a JSON string
