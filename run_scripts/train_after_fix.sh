@@ -4,10 +4,11 @@
 #SBATCH -N 1
 #SBATCH -G 2
 #SBATCH --cpus-per-task=18
-#SBATCH -t 9:00:00
+#SBATCH -t 10:00:00
 #SBATCH --mail-type=BEGIN,END
 #SBATCH --mail-user=daniel.van.oosteroom@student.uva.nl
 #SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/%j_training.log
+# #SBATCH --qos=short
 
 #export NCCL_DEBUG=INFO
 #export NCCL_IB_DISABLE=0
@@ -35,17 +36,17 @@ export PYTHONUNBUFFERED=1
 
 torchrun --nproc_per_node=2 run.py \
 	--task "DSI" \
-	--model_name "$ENV_PATH/local_models/google/mt5-base" \
-	--run_name "enron-10k-mt5-base-DSI-Q-classicv1.2" \
-        --max_length 32 \
-        --output_dir "$ENV_PATH/models/enron-10k-mt5-base-DSI-Q-classic2" \
-        --learning_rate 0.0005 \
-        --warmup_steps 100000 \
-        --per_device_train_batch_size 32 \
+	--model_name "$ENV_PATH/local_models/google/t5-base" \
+	--run_name "enron-10k-t5-base-DSI-Q-classicv1.2" \
+        --max_length 512 \
+        --output_dir "$ENV_PATH/models/enron-10k-mt5-base-DSI-Q-classicv1.2" \
+        --learning_rate 0.00005 \
+        --warmup_steps 5000 \
+        --per_device_train_batch_size 15 \
         --per_device_eval_batch_size 32 \
         --evaluation_strategy "steps" \
 	--eval_steps 1000 \
-        --max_steps 100000 \
+        --max_steps 50000 \
         --save_strategy "steps" \
         --dataloader_num_workers 12 \
         --save_steps 1000 \
@@ -60,8 +61,8 @@ torchrun --nproc_per_node=2 run.py \
         --remove_prompt True \
         --db_name "$TMPDIR/enron.db" \
 	--table_name "N10k" \
+	--label_smoothing_factor 0.1 \
+        --weight_decay 0.01
 	--save_size "10K" \
 	--save_experiment_type "base" \
 	--save_version "v1.1" \
-
-###BATCH --qos=short
