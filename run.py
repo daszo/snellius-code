@@ -410,20 +410,6 @@ def main():
         
         from CE.utils.test.gr_evaluation import DSIEmailSearchEvaluator
 
-        run_args = RunArguments(
-            model_name="models/enron-10k-mt5-base-DSI-Q-classic/checkpoint-15000",
-            task="DSI",
-            db_name="data/enron.db",
-            train_size=0.8,
-            validate_size=0.1,
-            test_size=0.1,
-            id_max_length=10,
-            max_length=64,
-            table_name="N10k_text_rank_d2q_q1",
-        )
-
-        #df = load_db(run_args.table_name, run_args.db_name)
-
 
         evaluator = DSIEmailSearchEvaluator(
             trainer=trainer, run_args=run_args, input_file=run_args.test_file, df=df

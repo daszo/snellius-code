@@ -45,7 +45,7 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
                 data = json.loads(line)
                 text_id, body = (
                     data.get("text_id"),
-                    data.get("body_clean_and_subject", ""),
+                    data.get("text", ""),
                 )
 
                 # fout.write(json.dumps({"id": mid, "contents": body}) + "\n")
