@@ -344,7 +344,7 @@ def main():
         # TODO: implement beam first search
         ################################################################
         # docid generation constrain, we only generate integer docids.
-        if run_semantic == False:
+        if not run_semantic:
             SPIECE_UNDERLINE = "▁"
             INT_TOKEN_IDS = []
             for token, id in tokenizer.get_vocab().items():

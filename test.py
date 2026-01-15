@@ -1,6 +1,7 @@
 from CE.utils.test.gr_evaluation import DSIEmailSearchEvaluator
 from run import RunArguments
 from CE.utils.database import load_db
+from transformers import AutoTokenizer
 
 
 def main():
@@ -18,6 +19,14 @@ def main():
     )
 
     df = load_db(run_args.table_name, run_args.db_name)
+
+    tokenizer = AutoTokenizer.from_pretrained("t5-base")
+
+    def count_t5_tokens(text):
+        return len(tokenizer.encode(text))
+
+    df["token_count"] = df["text"].apply(count_t5_tokens)
+    run_args.id_max_length = df["token_count"].max()
 
     input_file = "data/test.N10k.docTquery"
 
