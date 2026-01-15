@@ -139,6 +139,7 @@ cache/
 wandb/
 
 *.db
+*.csv
 
 
 #BM 25 junk.
