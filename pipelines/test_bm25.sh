@@ -8,8 +8,7 @@
 #SBATCH --mem=64G               # Request explicit RAM (BM25 can be memory hungry)
 #SBATCH --job-name=test_bm25
 #SBATCH --mail-type=BEGIN,END
-#SBATCH --mail-user=daniel.van.oosteroom@student.uva.nl
-#SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/%j_training.log
+#SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/test_bm25.log
 
 exec > >(ts '[%Y-%m-%d %H:%M:%S]') 2>&1
 

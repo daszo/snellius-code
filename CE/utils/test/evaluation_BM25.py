@@ -44,10 +44,9 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
             for line in fin:
                 data = json.loads(line)
                 text_id, body = (
-                    data.get("text_id"),
+                    data.get("text_id").strip(),
                     data.get("text", ""),
                 )
-
                 # fout.write(json.dumps({"id": mid, "contents": body}) + "\n")
                 # self.mid_to_textid[mid] = text_id
                 if data.get("text"):
@@ -69,10 +68,10 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
 
             df = load_db(self.table_name)
             for _, row in df.iterrows():
-                mid = row["mid"]
+                mid = str(row["mid"])
                 body = row["body_clean_and_subject"]
                 fout.write(json.dumps({"id": mid, "contents": body}) + "\n")
-                self.mid_to_textid[mid] = row["elaborative_description"]
+                self.mid_to_textid[mid] = row["elaborative_description"].strip()
 
     def build_index(self):
         if os.path.exists(self.index_dir):
