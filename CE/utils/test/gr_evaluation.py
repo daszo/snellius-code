@@ -288,56 +288,106 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
         save_result(tuple(data))
 
 
-if __name__ == "__main__":
-    # --- 1. SETUP DUMMY ARGS ---
+# if __name__ == "__main__":
+#     # --- 1. SETUP DUMMY ARGS ---
+#     run_args = RunArguments(
+#         model_name="local_models/google/mt5-base",
+#         task="DSI",
+#         db_name="data/enron.db",
+#         train_size=0.8,
+#         validate_size=0.1,
+#         test_size=0.1,
+#         id_max_length=10,
+#         max_length=64,
+#     )
+#
+#     # --- 2. SETUP DUMMY DATA ---
+#     # Create a dummy dataframe and save it to jsonl for the evaluator to read
+#     print("Generating dummy data...")
+#     dummy_data = [
+#         {
+#             "text_id": "1001",
+#             "text_rank_query": "budget meeting",
+#             "doctoquery": "finance report",
+#         },
+#         {
+#             "text_id": "1002",
+#             "text_rank_query": "project launch",
+#             "doctoquery": "marketing plan",
+#         },
+#         {
+#             "text_id": "1003",
+#             "text_rank_query": "holiday party",
+#             "doctoquery": "hr announcement",
+#         },
+#     ]
+#     input_file = "dummy_eval_input.jsonl"
+#     with open(input_file, "w") as f:
+#         for item in dummy_data:
+#             f.write(json.dumps(item) + "\n")
+#
+#     # --- 4. DEFINE RESTRICTION FUNCTION ---
+#     # For this test, we allow all tokens. In production, this uses your Trie.
+#     def dummy_restrict_decode_vocab(batch_idx, prefix_input_ids):
+#         return None  # None means all tokens allowed
+#
+#     # --- 5. RUN EVALUATOR ---
+#     print("Initializing Evaluator...")
+#     evaluator = DSIEmailSearchEvaluator(
+#         model=run_args.model_name,
+#         run_args=run_args,
+#         input_file=input_file,
+#         restrict_decode_vocab=dummy_restrict_decode_vocab,
+#     )
+#
+#     print("Preparing Data...")
+#     evaluator.prepare_data()
+#
+#     print("Running Retrieval Phase (Inference)...")
+#     evaluator.run_retrieval_phase()
+#
+#     print("Computing Metrics...")
+#     evaluator.compute_metrics()
+#
+#     print("Saving Results...")
+#     evaluator.save_results(size="10k", experiment_type="base")
+#
+#     # Cleanup
+#     if os.path.exists(input_file):
+#         os.remove(input_file)
+
+if "__main__" == __name__:
     run_args = RunArguments(
-        model_name="local_models/google/mt5-base",
+        model_name="t5-base",  # Use a small model for testing
         task="DSI",
-        db_name="data/enron.db",
+        table_name="test_emails",  # Dummy table name
+        db_name="data/enron.dc",  # Dummy DB
         train_size=0.8,
         validate_size=0.1,
         test_size=0.1,
-        id_max_length=10,
-        max_length=64,
+        id_max_length=10,  # Short length for speed
     )
 
-    # --- 2. SETUP DUMMY DATA ---
-    # Create a dummy dataframe and save it to jsonl for the evaluator to read
-    print("Generating dummy data...")
-    dummy_data = [
-        {
-            "text_id": "1001",
-            "text_rank_query": "budget meeting",
-            "doctoquery": "finance report",
-        },
-        {
-            "text_id": "1002",
-            "text_rank_query": "project launch",
-            "doctoquery": "marketing plan",
-        },
-        {
-            "text_id": "1003",
-            "text_rank_query": "holiday party",
-            "doctoquery": "hr announcement",
-        },
-    ]
-    input_file = "dummy_eval_input.jsonl"
-    with open(input_file, "w") as f:
-        for item in dummy_data:
-            f.write(json.dumps(item) + "\n")
+    table_name = run_args.table_name
 
-    # --- 4. DEFINE RESTRICTION FUNCTION ---
-    # For this test, we allow all tokens. In production, this uses your Trie.
-    def dummy_restrict_decode_vocab(batch_idx, prefix_input_ids):
-        return None  # None means all tokens allowed
+    df = load_db(run_args.table_name, run_args.db_name)
 
-    # --- 5. RUN EVALUATOR ---
-    print("Initializing Evaluator...")
+    semantic_ids = df["elaborative_description"].map(type).eq(str).all()
+
+    tokenizer = AutoTokenizer.from_pretrained("t5-base")
+
+    def count_t5_tokens(text):
+        return len(tokenizer.encode(text))
+
+    df["token_count"] = df["text"].apply(count_t5_tokens)
+    longest_count = df["token_count"].max()
+
+    run_args.id_max_length = longest_count
+
     evaluator = DSIEmailSearchEvaluator(
-        model=run_args.model_name,
-        run_args=run_args,
-        input_file=input_file,
-        restrict_decode_vocab=dummy_restrict_decode_vocab,
+        model="/gpfs/work5/0/prjs1828/DSI-QG/models/enron-10k-mt5-base-DSI-Q-classicv1.2/checkpoint-44000",
+        input_file="/gpfs/work5/0/prjs1828/DSI-QG/data/test.N10k.docTquery",
+        run_args=run_args
     )
 
     print("Preparing Data...")
@@ -350,41 +400,4 @@ if __name__ == "__main__":
     evaluator.compute_metrics()
 
     print("Saving Results...")
-    evaluator.save_results(size="10k", experiment_type="base")
-
-    # Cleanup
-    if os.path.exists(input_file):
-        os.remove(input_file)
-
-#
-# if "__main__" == __name__:
-#     run_args = RunArguments(
-#         model_name="t5-small",  # Use a small model for testing
-#         task="DSI",
-#         table_name="test_emails",  # Dummy table name
-#         db_name="my_test_db",  # Dummy DB
-#         train_size=0.8,
-#         validate_size=0.1,
-#         test_size=0.1,
-#         id_max_length=10,  # Short length for speed
-#     )
-#
-#     table_name = run_args.table_name
-#
-#     df = load_db(run_args.table_name, run_args.db_name)
-#
-#     semantic_ids = df["elaborative_description"].map(type).eq(str).all()
-#
-#     tokenizer = AutoTokenizer.from_pretrained("t5-base")
-#
-#     def count_t5_tokens(text):
-#         return len(tokenizer.encode(text))
-#
-#     df["token_count"] = df["text"].apply(count_t5_tokens)
-#     longest_count = df["token_count"].max()
-#
-#     run_args.id_max_length = longest_count
-#
-#     evaluator = DSIEmailSearchEvaluator(
-#         model="/enron-10k-mt5-base-DSI-Q-classic/checkpoint-15000/"
-#     )
+    evaluator.save_results(size="10k", experiment_type="no_thread")
