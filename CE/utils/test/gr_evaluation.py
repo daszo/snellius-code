@@ -162,8 +162,7 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
         self.id_max_length = getattr(run_args, "id_max_length", 20)
         self.batch_size = getattr(run_args, "per_device_eval_batch_size", 8)
 
-        self.dataset_map = []  # Tracks order of query types
-        self.execution_results = {"textrank": [], "d2q": []}
+        self.execution_results = []
         self.final_metrics = []
         self.valid_file_path = None
 
@@ -185,7 +184,6 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
                 if data.get("text"):
                     entry = {"text": data["text"], "text_id": text_id}
                     fout.write(json.dumps(entry) + "\n")
-                    self.dataset_map.append("query")
 
         self.valid_file_path = valid_file_path
 
@@ -245,16 +243,12 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
                     rank = r + 1
                     break
 
-            # Record Rank
-            # Map index i back to the query type
-            if i < len(self.dataset_map):
-                query_type = self.dataset_map[i]
-                self.execution_results[query_type].append(rank)
+            self.execution_results.append(rank)
 
     def compute_metrics(self):
         """Computes MRR and Hits metrics."""
         # Simplified to handle single query type
-        ranks = self.execution_results["query"]
+        ranks = self.execution_results
         
         if not ranks:
             print("No results for query")
