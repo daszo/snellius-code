@@ -471,10 +471,10 @@ def main():
             df_pred = pd.DataFrame(data)
 
             if run_args.thread == 1:
-                df_result = df_pred["mid", "doctoquery"]
+                df_result = df_pred[["mid", "doctoquery"]]
 
                 destination_table_name = (
-                    f"full_thread_d2q_q{run_args.num_return_sequences}"
+                    f"thread_d2q_q{run_args.num_return_sequences}"
                 )
             else:
                 df_result = df_db.merge(df_pred, left_index=True, right_on="mid", how="left")

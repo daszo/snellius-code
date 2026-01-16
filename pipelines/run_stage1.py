@@ -15,7 +15,9 @@ def stage1():
 
     if thread:
         run_text_rank(
-            table="v_CleanMessages_thread", destination_table="text_rank_thread"
+            table="v_CleanMessages_thread",
+            destination_table="text_rank_thread",
+            thread=thread,
         )
     else:
         run_text_rank(table="v_CleanMessages", destination_table="full_text_rank")
