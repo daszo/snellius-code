@@ -135,7 +135,7 @@ def finish_clean_message_and_drop_folders(
 def combine_views(table_name):
     """
     v_CleanMessages_thread
-    full_thread_d2q_q1
+    thread_d2q_q1
     text_rank_thread
     """
     conn = sqlite3.connect(DB_PATH)
