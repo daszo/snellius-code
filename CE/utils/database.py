@@ -130,3 +130,36 @@ def finish_clean_message_and_drop_folders(
     cursor.executescript(sql_clean_messages)
 
     conn.commit()
+
+
+def conbine_views():
+    """
+    v_CleanMessages_thread
+    full_thread_d2q_q1
+    text_rank_thread
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # SQL to create the view
+    # Uses LEFT JOIN to keep all records from v_CleanMessages_thread
+    # Aliases are used to select all columns from each table
+    sql_create_view = """
+    CREATE VIEW IF NOT EXISTS v_thread_joined_all AS
+    SELECT 
+        t1.*, 
+        t2.*, 
+        t3.*
+    FROM v_CleanMessages_thread t1
+    LEFT JOIN full_thread_d2q_q1 t2 ON t1.mid = t2.mid
+    LEFT JOIN text_rank_thread t3 ON t1.mid = t3.mid;
+    """
+
+    try:
+        cursor.execute(sql_create_view)
+        conn.commit()
+        print("View 'v_thread_joined_all' created successfully.")
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+    finally:
+        conn.close()

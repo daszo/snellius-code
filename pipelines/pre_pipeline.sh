@@ -38,4 +38,4 @@ PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun --nproc_per_
 
 echo"3. splitsing the data"
 
-PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m pipelines.prep_datasets "v_full_text_rank_d2q_q$RETURN_SEQ"
+PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m pipelines.prep_datasets --thread "v_full_text_rank_thread_d2q_q$RETURN_SEQ"

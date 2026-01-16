@@ -51,6 +51,5 @@ def run_text_rank(table="N10k", destination_table="N10k_text_rank", thread=False
             df_queries[["mid", "text_rank_query", "elaborative_description"]],
             destination_table,
         )
-        combine_with_clean()
     else:
         write_to_db(df_queries, destination_table)

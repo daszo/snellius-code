@@ -45,7 +45,7 @@ set_seed(313)
 
 @dataclass
 class RunArguments:
-    model_name: str = field(default=None)
+    model_name: Optional[str] = field(default=None)
     model_path: Optional[str] = field(default=None)
     max_length: Optional[int] = field(default=32)
     id_max_length: Optional[int] = field(default=20)
@@ -67,9 +67,11 @@ class RunArguments:
     split_by: Optional[str] = "query" # "email"
 
     # --- settings for saving ---
-    save_size: str =field(default="N10k"),
-    save_experiment_type: str =field(default="base"),
-    save_version: str =field(default="v1.0")
+    save_size: str = field(default="N10k"),
+    save_experiment_type: str = field(default="base"),
+    save_version: str =field(default="v1.0"),
+    
+    thread: int = field(default=0),
 
 
 def make_compute_metrics(tokenizer, valid_ids):
@@ -468,11 +470,18 @@ def main():
 
             df_pred = pd.DataFrame(data)
 
-            df_result = df_db.merge(df_pred, left_index=True, right_on="mid", how="left")
+            if run_args.thread == 1:
+                df_result = df_pred["mid", "doctoquery"]
 
-            destination_table_name = (
-                f"{table_name}_d2q_q{run_args.num_return_sequences}"
-            )
+                destination_table_name = (
+                    f"full_thread_d2q_q{run_args.num_return_sequences}"
+                )
+            else:
+                df_result = df_db.merge(df_pred, left_index=True, right_on="mid", how="left")
+
+                destination_table_name = (
+                    f"{table_name}_d2q_q{run_args.num_return_sequences}"
+                )
 
             write_to_db(df_result, destination_table_name)
 
