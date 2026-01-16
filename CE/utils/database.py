@@ -132,7 +132,7 @@ def finish_clean_message_and_drop_folders(
     conn.commit()
 
 
-def conbine_views(table_name):
+def combine_views(table_name):
     """
     v_CleanMessages_thread
     full_thread_d2q_q1
