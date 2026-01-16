@@ -151,14 +151,14 @@ def combine_views(table_name):
         t2.*, 
         t3.*
     FROM v_CleanMessages_thread t1
-    LEFT JOIN full_thread_d2q_q1 t2 ON t1.mid = t2.mid
+    LEFT JOIN thread_d2q_q1 t2 ON t1.mid = t2.mid
     LEFT JOIN text_rank_thread t3 ON t1.mid = t3.mid;
     """
 
     try:
         cursor.execute(sql_create_view)
         conn.commit()
-        print("View '{table_name}' created successfully.")
+        print(f"View '{table_name}' created successfully.")
     except sqlite3.Error as e:
         print(f"An error occurred: {e}")
     finally:
