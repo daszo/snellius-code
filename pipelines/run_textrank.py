@@ -1,6 +1,6 @@
 import sqlite3
 import pandas as pd
-from CE.utils.database import load_db, write_to_db, combine_with_clean
+from CE.utils.database import load_db, write_to_db
 from summa import summarizer
 from summa import keywords
 

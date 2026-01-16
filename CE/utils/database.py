@@ -132,7 +132,7 @@ def finish_clean_message_and_drop_folders(
     conn.commit()
 
 
-def conbine_views():
+def conbine_views(table_name):
     """
     v_CleanMessages_thread
     full_thread_d2q_q1
@@ -144,8 +144,8 @@ def conbine_views():
     # SQL to create the view
     # Uses LEFT JOIN to keep all records from v_CleanMessages_thread
     # Aliases are used to select all columns from each table
-    sql_create_view = """
-    CREATE VIEW IF NOT EXISTS v_thread_joined_all AS
+    sql_create_view = f"""
+    CREATE VIEW IF NOT EXISTS {table_name} AS
     SELECT 
         t1.*, 
         t2.*, 
@@ -158,7 +158,7 @@ def conbine_views():
     try:
         cursor.execute(sql_create_view)
         conn.commit()
-        print("View 'v_thread_joined_all' created successfully.")
+        print("View '{table_name}' created successfully.")
     except sqlite3.Error as e:
         print(f"An error occurred: {e}")
     finally:

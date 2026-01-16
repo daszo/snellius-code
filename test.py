@@ -44,7 +44,7 @@ def main():
     evaluator.compute_metrics()
 
     print("Saving Results...")
-    evaluator.save_results(size="10k", experiment_type="no_thread", version-"v1.2")
+    evaluator.save_results(size="10k", experiment_type="no_thread", version="v1.2")
 
 
 main()

@@ -6,7 +6,7 @@ import argparse
 def create_10k_100k_dataset(table_name: str = "full_text_rank_d2q_q1", thread=False):
 
     if thread:
-        combine_views()
+        combine_views(table_name)
 
     df = load_db(table_name)
     df.drop(columns=["mid_x", "mid_y"], inplace=True)
