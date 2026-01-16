@@ -81,10 +81,12 @@ class DSIPredictor:
             for batch in tqdm(dataloader, desc="Running Inference"):
                 input_ids = batch["input_ids"].to(self.device)
 
+                attention_mask = batch["attention_mask"].to(self.device)
                 # Beam Search Generation
                 # Returns (Batch * Num_Return_Sequences, Seq_Len)
                 outputs = self.model.generate(
                     input_ids,
+                    attention_mask=attention_mask,
                     max_length=self.id_max_length,
                     num_beams=self.num_return_sequences,  # Usually beams == return_seqs for retrieval
                     prefix_allowed_tokens_fn=self.restrict_decode_vocab,

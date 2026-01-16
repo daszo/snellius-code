@@ -13,9 +13,9 @@ exec > >(ts '[%Y-%m-%d %H:%M:%S]') 2>&1
 
 echo "Starting pipeline"
 echo "1. data cleaning and textrank"
-export PYTHONUNBUFFERED=1 
+export PYTHONUNBUFFERED=1
 
-PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m pipelines.run_stage1
+PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m pipelines.run_stage1 --thread
 
 RETURN_SEQ=1
 
@@ -24,7 +24,7 @@ echo "2. Title generation"
 PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun --nproc_per_node=1 run.py \
     --do_predict \
     --task generation \
-    --table_name full_text_rank \
+    --table_name v_full_text_rank_tread \
     --model_name /gpfs/work5/0/prjs1828/DSI-QG/local_models/t5-headline \
     --per_device_eval_batch_size 32 \
     --run_name docTquery-full-generation \
@@ -37,5 +37,5 @@ PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun --nproc_per_
     --num_return_sequences $RETURN_SEQ
 
 echo"3. splitsing the data"
- 
-PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m pipelines.prep_datasets "full_text_rank_d2q_q$RETURN_SEQ"
+
+PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m pipelines.prep_datasets "v_full_text_rank_d2q_q$RETURN_SEQ"

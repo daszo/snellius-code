@@ -73,7 +73,9 @@ def save_result(data_tuple, db_path: str = DB_PATH):
 # Example usage:
 # data = ('BERT-Base', '110M', 'retrieval', 'v1.2', 0.45, 0.62, 0.31, 0.88)
 # save_result('experiments.db', data)
-def finish_clean_message_and_drop_folders(db_path: str = DB_PATH):
+def finish_clean_message_and_drop_folders(
+    keep_full_history=False, db_path: str = DB_PATH
+):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
@@ -99,12 +101,16 @@ def finish_clean_message_and_drop_folders(db_path: str = DB_PATH):
             'notes_inbox'
         );
     """
+    if keep_full_history:
+        view_name = "v_CleanMessages_thread"
+    else:
+        view_name = "v_CleanMessages"
 
     # 2. Define the SQL for the cleaned messages view (Run this SECOND)
-    sql_clean_messages = """
-    DROP VIEW IF EXISTS v_CleanMessages;
+    sql_clean_messages = f"""
+    DROP VIEW IF EXISTS {view_name};
 
-    CREATE VIEW v_CleanMessages AS
+    CREATE VIEW {view_name} AS
     SELECT * FROM (
         SELECT *
         FROM v_DroppedFolders

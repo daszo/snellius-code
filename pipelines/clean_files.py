@@ -4,11 +4,19 @@ import re
 import numpy as np
 from CE.utils.database import finish_clean_message_and_drop_folders
 
+# --- CONSTANTS ---
+# Defined globally so both splitting and truncation use the exact same logic
+HISTORY_DELIMITERS = [
+    r"-----Original Message-----",
+    r"----- Forwarded by",
+    r"^\s*From:\s.+?Sent:\s.+?To:\s",  # Outlook Header quote
+    r"^_+?$",  # Underscore line
+    r'^".*?"\s+<.*?>\s+on\s+\d{2}/\d{2}/\d{4}',  # Lotus Notes style
+]
+
 
 def remove_legal_disclaimer(text: str) -> str:
-    """
-    (USER LOGIC) Removes the specific legal disclaimer from a text string.
-    """
+    """(USER LOGIC) Removes specific legal disclaimer."""
     disclaimer_text = """This e-mail message may contain legally privileged and/or confidential
     information. If you are not the intended recipient(s), or the employee
     or agent responsible for delivery of this message to the intended
@@ -24,93 +32,48 @@ def remove_legal_disclaimer(text: str) -> str:
     return compiled_pattern.sub("", text).strip()
 
 
-def truncate_email_history(text: str) -> str:
-    """
-    (GEMINI LOGIC) Cuts the email text entirely at the first sign of a
-    forwarded chain or history. This prevents indexing
-    duplicate content.
-    """
-    if not text:
-        return ""
-
-    lines = text.splitlines()
-    cut_lines = []
-
-    # Stop reading as soon as we see a Forward or Original Message delimiter.
-    # Note: We replaced your 're.sub' with this 'break' logic.
-    history_delimiters = [
-        r"-----Original Message-----",
-        r"----- Forwarded by",
-        r"^\s*From:\s.+?Sent:\s.+?To:\s",  # Outlook Header quote
-        r"^_+?$",  # Underscore line
-        # Added specifically for your test case (Lotus Notes style):
-        # Matches: "Name" <email> on 01/01/2000
-        r'^".*?"\s+<.*?>\s+on\s+\d{2}/\d{2}/\d{4}',
-    ]
-
-    for line in lines:
-        # If we hit a history marker, we stop reading the file entirely.
-        if any(re.search(p, line, re.IGNORECASE) for p in history_delimiters):
-            break
-        cut_lines.append(line)
-
-    return "\n".join(cut_lines)
-
-
 def prune_signature_footer(text: str) -> str:
-    """
-    (GEMINI LOGIC - UPDATED) Reverse scan to eat the signature block.
-    Now includes UK Postcodes and generic address indicators.
-    """
+    """(GEMINI LOGIC) Reverse scan to eat the signature block."""
     if not text:
         return ""
 
     lines = text.splitlines()
 
     clutter_patterns = [
-        r"\d{3}[-.\s]\d{3}[-.\s]\d{4}",  # US Phone numbers
-        r"\b(fax|cell|mobile|office|w|c|h)\b",  # Phone labels
-        r"\b(Street|St|Ave|Rd|Blvd|Suite|Floor|Haymarket)\b",  # Address markers (Added 'Haymarket')
-        r"\b\d{5}\b",  # US Zip codes
-        # Matches formats like "SW1Y 4RX", "W1 1AA", "EC1A 1BB"
+        r"\d{3}[-.\s]\d{3}[-.\s]\d{4}",
+        r"\b(fax|cell|mobile|office|w|c|h)\b",
+        r"\b(Street|St|Ave|Rd|Blvd|Suite|Floor|Haymarket)\b",
+        r"\b\d{5}\b",
         r"\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b",
-        # --- NEW: Major Enron Office Cities (Risky generally, safe for Footer Pruning) ---
-        # If a line at the very bottom contains "London" or "Houston"
-        # and has NO sentence punctuation, it is an address.
         r"\b(London|Houston|New York|Calgary|Portland)\b",
-        r"@enron\.com",  # Internal emails
+        r"@enron\.com",
         r"Best Regards,",
         r"Sincerely,",
         r"Thanks,",
-        r"Regards,",  # Closers
+        r"Regards,",
     ]
 
-    # Patterns that imply "Real Content" (Sentence endings)
-    content_keepers = [r"[.?!]$", r"^(?!\s*$).{60,}$"]  # Long lines are usually content
+    content_keepers = [r"[.?!]$", r"^(?!\s*$).{60,}$"]
 
     final_lines = []
     is_cleaning_footer = True
 
     for line in reversed(lines):
         stripped = line.strip()
-
         if not stripped:
             if not is_cleaning_footer:
                 final_lines.append(line)
             continue
 
-        # Check against patterns
         is_clutter = any(
             re.search(p, stripped, re.IGNORECASE) for p in clutter_patterns
         )
         is_keeper = any(re.search(p, stripped) for p in content_keepers)
 
         if is_cleaning_footer:
-            # IF it looks like clutter AND it doesn't look like a sentence -> DELETE
             if is_clutter and not is_keeper:
                 continue
             else:
-                # We found the first real line of text. Stop deleting.
                 is_cleaning_footer = False
                 final_lines.append(line)
         else:
@@ -119,146 +82,204 @@ def prune_signature_footer(text: str) -> str:
     return "\n".join(reversed(final_lines)).strip()
 
 
-def clean_email_body(text):
+def clean_segment_content(text: str) -> str:
     """
-    MASTER FUNCTION: Chains the user's regex cleaning with structure pruning.
+    (REFACTORED) Applies the regex scrubbing and signature pruning.
+    This logic is now separate from the history truncation so it can be
+    applied to history segments too.
+    """
+    if not text:
+        return ""
+
+    # --- Regex Scrubbing (USER LOGIC) ---
+    text = remove_legal_disclaimer(text)
+    text = re.sub(r"\*{10,}[\s\S]*?\*{10,}", "", text)  # Enron block
+    text = re.sub(r"^[\s>]+", "", text, flags=re.MULTILINE)  # Quotes
+
+    # Header Blocks
+    header_block_pattern = r"(?:^.+? on \d{2}/\d{2}/\d{4}[\s\S]*?|^\s*(?:From|Sent|To|Cc|Please respond to):[\s\S]*?)^Subject:.*$"
+    text = re.sub(header_block_pattern, "", text, flags=re.MULTILINE | re.IGNORECASE)
+
+    # Labeled Contact Info
+    text = re.sub(
+        r"\b(?:Fax|Direct|Tel)\s*:\s*[+\d\s().-]+", "", text, flags=re.IGNORECASE
+    )
+    text = re.sub(
+        r"\bEmail\s*:\s*[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    # Generic Info
+    text = re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "", text)
+    text = re.sub(
+        r"(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?:\s*(?:x|ext)\.?\s*\d+)?",
+        "",
+        text,
+    )
+
+    # Symbols
+    text = re.sub(r"(?:\s|^)-+(?=\s|$)|-{2,}", "", text)
+    text = re.sub(r"\b\w+(?:\.[a-zA-Z]\w*)+\b", "", text)
+    text = re.sub(r"^\s*\?+\s*(?:\r?\n|\r)?", "", text, flags=re.MULTILINE)
+
+    # --- Signature Pruning (GEMINI LOGIC) ---
+    text = prune_signature_footer(text)
+
+    # Final Polish
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+# ==========================================
+#   SPLITTING & TRUNCATION LOGIC
+# ==========================================
+
+
+def truncate_email_history(text: str) -> str:
+    """(ORIGINAL) Returns ONLY the newest message, cutting at the first delimiter."""
+    if not text:
+        return ""
+    lines = text.splitlines()
+    cut_lines = []
+    for line in lines:
+        if any(re.search(p, line, re.IGNORECASE) for p in HISTORY_DELIMITERS):
+            break
+        cut_lines.append(line)
+    return "\n".join(cut_lines)
+
+
+def split_email_chain(text: str) -> list[str]:
+    """
+    (NEW) Splits an email into a list of messages [Newest, Reply1, Reply2...]
+    based on the history delimiters.
+    """
+    if not text:
+        return []
+
+    lines = text.splitlines()
+    segments = []
+    current_segment = []
+
+    for line in lines:
+        # Check if this line marks the start of a previous message
+        if any(re.search(p, line, re.IGNORECASE) for p in HISTORY_DELIMITERS):
+            # If we have content in the current buffer, save it
+            if current_segment:
+                segments.append("\n".join(current_segment))
+            # Start a new segment with this line (it's the start of the next header)
+            current_segment = [line]
+        else:
+            current_segment.append(line)
+
+    # Append the final segment
+    if current_segment:
+        segments.append("\n".join(current_segment))
+
+    return segments
+
+
+# ==========================================
+#   MAIN FUNCTIONS
+# ==========================================
+
+
+def clean_email_body(text: str) -> str:
+    """
+    OPTION A: The Original Behavior
+    Returns cleaned text of ONLY the newest message.
     """
     if pd.isna(text) or not isinstance(text, str):
         return ""
 
-    # --- PHASE 1: Structural Truncation (GEMINI) ---
-    # We do this FIRST to avoid processing text we are going to throw away.
+    # 1. Truncate history (throw away old messages)
     text = truncate_email_history(text)
 
-    # --- PHASE 2: Regex Scrubbing (USER) ---
-    # Adapted from your original clean_email_body
-
-    text = remove_legal_disclaimer(text)
-
-    # 1. Enron Disclaimer Block (User's Step 1)
-    text = re.sub(r"\*{10,}[\s\S]*?\*{10,}", "", text)
-
-    # 2. Quoted text markers (User's Step 3)
-    text = re.sub(r"^[\s>]+", "", text, flags=re.MULTILINE)
-
-    # 3. Header Blocks (User's Step 5)
-    # Kept in case there is a header at the very top of the file
-    header_block_pattern = r"(?:^.+? on \d{2}/\d{2}/\d{4}[\s\S]*?|^\s*(?:From|Sent|To|Cc|Please respond to):[\s\S]*?)^Subject:.*$"
-    text = re.sub(header_block_pattern, "", text, flags=re.MULTILINE | re.IGNORECASE)
-
-    # 4. Labeled Contact Info (User's Step 7a/7b)
-    labeled_phone_pattern = r"\b(?:Fax|Direct|Tel)\s*:\s*[+\d\s().-]+"
-    text = re.sub(labeled_phone_pattern, "", text, flags=re.IGNORECASE)
-
-    labeled_email_pattern = (
-        r"\bEmail\s*:\s*[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}"
-    )
-    text = re.sub(labeled_email_pattern, "", text, flags=re.IGNORECASE)
-
-    # 5. Generic Emails/Phones (User's Step 8/9)
-    generic_email_pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
-    text = re.sub(generic_email_pattern, "", text)
-
-    generic_phone_pattern = r"(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?:\s*(?:x|ext)\.?\s*\d+)?"
-    text = re.sub(generic_phone_pattern, "", text)
-
-    # 6. Hyphens and Dots (User's Step 10/11)
-    hyphen_pattern = r"(?:\s|^)-+(?=\s|$)|-{2,}"
-    text = re.sub(hyphen_pattern, "", text)
-
-    dot_word_pattern = r"\b\w+(?:\.[a-zA-Z]\w*)+\b"
-    text = re.sub(dot_word_pattern, "", text)
-
-    # 7. Question Marks (User's Logic)
-    question_mark_pattern = r"^\s*\?+\s*(?:\r?\n|\r)?"
-    text = re.sub(question_mark_pattern, "", text, flags=re.MULTILINE)
-
-    # --- PHASE 3: Signature Pruning (GEMINI) ---
-    # Now that the body is scrubbed, we eat the "Footer" signature
-    # that is left hanging at the bottom.
-    text = prune_signature_footer(text)
-
-    # Final Whitespace Polish
-    text = re.sub(r"\n{3,}", "\n\n", text)
-
-    return text.strip()
+    # 2. Clean the remainder
+    return clean_segment_content(text)
 
 
-def clean_email_bodies_pipeline(DB_PATH="data/enron.db"):
+def clean_full_chain(text: str) -> str:
+    """
+    OPTION B: The New Requirement
+    Splits the chain, cleans EACH message individually, and concatenates them.
+    """
+    if pd.isna(text) or not isinstance(text, str):
+        return ""
+
+    # 1. Split into segments [Newest, Old_1, Old_2...]
+    raw_segments = split_email_chain(text)
+
+    # 2. Clean each segment individually
+    cleaned_segments = [clean_segment_content(seg) for seg in raw_segments]
+
+    # 3. Filter out empty segments (in case a segment was just signatures)
+    cleaned_segments = [seg for seg in cleaned_segments if seg]
+
+    # 4. Join with double newline
+    return "\n\n".join(cleaned_segments)
+
+
+# ==========================================
+#   PIPELINE
+# ==========================================
+
+
+def clean_email_bodies_pipeline(DB_PATH="data/enron.db", keep_full_history=False):
+    """
+    Added 'keep_full_history' flag to toggle between behavior A and B.
+    """
     print("starting to load")
-
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    sql_query = "SELECT * FROM Message"
-
-    df = pd.read_sql_query(sql_query, conn)
-
-    conn.commit()
+    df = pd.read_sql_query("SELECT * FROM Message", conn)
     conn.close()
-
     print(f"loaded database {DB_PATH}")
 
-    # Apply cleaning
-    df["body_clean"] = df["body"].apply(clean_email_body)
+    # --- SELECT CLEANING STRATEGY ---
+    if keep_full_history:
+        print("Applying FULL CHAIN cleaning (Newest + History)...")
+        cleaning_func = clean_full_chain
+    else:
+        print("Applying TRUNCATED cleaning (Newest Only)...")
+        cleaning_func = clean_email_body
+
+    df["body_clean"] = df["body"].apply(cleaning_func)
     df = df[df["body_clean"].str.strip() != ""]
 
     print(f"Cleaned database {DB_PATH} of shape {df.shape}")
 
-    # 100x faster
+    # (Remaining pipeline logic unchanged...)
     df["clean_length_character"] = df["body_clean"].str.len()
     df["clean_length_word"] = df["body_clean"].str.split().str.len()
 
-    # add subject to clean body
-
-    df_table_name = "body_clean_and_subject"
-    # 1. Clean the body column first (Vectorized)
+    # Vectorized Subject Cleaning
     cleaned_body = (
         df["body_clean"].astype(str).str.replace(r"[\n\r\t]", " ", regex=True)
     )
-
     cleaned_subject = (
         df["subject"]
         .astype(str)
-        # Regex breakdown:
-        # ^             : Start of string
-        # (?:           : Start non-capturing group
-        # Re|Fw|Fwd|For : Match any of these prefixes
-        # )             : End group
-        # \s*:\s* : Match colon with optional whitespace
-        # +             : Match one or more times (handles "Re: Fwd: Re:")
         .str.replace(r"^(?:(?:Re|Fw|Fwd|For)\s*:\s*)+", "", case=False, regex=True)
         .str.strip()
     )
     df["subject"] = cleaned_subject
-
-    # 1. Determine the separator: If it ends with '.', use " \n", else ". \n"
     separators = np.where(cleaned_subject.str.endswith("."), "\n", ".\n")
 
-    # 2. Concatenate strings element-wise (Vectorized)
-    df[df_table_name] = cleaned_subject + separators + cleaned_body
+    df["body_clean_and_subject"] = cleaned_subject + separators + cleaned_body
 
     conn = sqlite3.connect(DB_PATH)
-
-    # Write to new table 'similarities'
-    # if_exists='replace' drops the table if it exists and creates a new one
-    # if_exists='append' adds to it
     df.to_sql(
-        name="Message",
-        con=conn,
-        if_exists="replace",
-        index=False,
-        chunksize=10000,  # Write in batches to save memory
+        name="Message", con=conn, if_exists="replace", index=False, chunksize=10000
     )
 
     cursor = conn.cursor()
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_sim_mid ON Message (mid)")
     conn.commit()
-
     conn.close()
 
-    print("written table Message back to {DB_PATH}")
-    finish_clean_message_and_drop_folders()
+    print(f"written table Message back to {DB_PATH}")
+    finish_clean_message_and_drop_folders(keep_full_history)
 
 
 if __name__ == "__main__":

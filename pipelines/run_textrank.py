@@ -1,6 +1,6 @@
 import sqlite3
 import pandas as pd
-from CE.utils.database import load_db, write_to_db
+from CE.utils.database import load_db, write_to_db, combine_with_clean
 from summa import summarizer
 from summa import keywords
 
@@ -38,10 +38,7 @@ def calculate_query_and_ed(row):
     return row
 
 
-def run_text_rank(
-    table="N10k",
-    destination_table="N10k_text_rank",
-):
+def run_text_rank(table="N10k", destination_table="N10k_text_rank", thread=False):
 
     df = load_db(table)
 
@@ -49,4 +46,11 @@ def run_text_rank(
 
     print("Finished text rank query generation")
 
-    write_to_db(df_queries, destination_table)
+    if thread:
+        write_to_db(
+            df_queries[["mid", "text_rank_query", "elaborative_description"]],
+            destination_table,
+        )
+        combine_with_clean()
+    else:
+        write_to_db(df_queries, destination_table)
