@@ -13,4 +13,4 @@
 exec > >(ts '[%Y-%m-%d %H:%M:%S]') 2>&1
 
 
-sqlite3 -header -csv data/enron.db "SELECT COUNT(*) FROM text_rank_thread  WHERE elaborative_description IS NOT NULL;"
+sqlite3 -header -csv data/enron.db "SELECT COUNT(*) FROM text_rank_thread  WHERE text_rank_query IS NOT NULL;"
