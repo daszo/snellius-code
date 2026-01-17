@@ -29,18 +29,19 @@ def create_10k_100k_dataset(table_name: str = "full_text_rank_d2q_q1", thread=Fa
 
         df_10k = load_db("N10k")
 
-        df_10k_thread_same_mid = df_valid[df_valid["mid"].isin(df_10k["mid"])]
+        # FIX 1: Use 'df' (unfiltered), not 'df_valid'
+        # We want to match the IDs regardless of whether they are 'valid' strata
+        df_10k_thread_same_mid = df[df["mid"].isin(df_10k["mid"])]
 
-        n10k_same_mid_sampled_df, _ = train_test_split(
-            df_10k_thread_same_mid,
-            train_size=10_000,
-            stratify=df_valid["strata_key"],
-            random_state=42,
-        )
+        # FIX 2: Remove train_test_split.
+        # You already have the specific set of IDs you want. Just save them.
+        # Dropping strata_key is optional depending on if you need it later.
+        if "strata_key" in df_10k_thread_same_mid.columns:
+            df_10k_thread_same_mid = df_10k_thread_same_mid.drop(columns=["strata_key"])
 
-        n10k_same_mid_sampled_df = n10k_same_mid_sampled_df.drop(columns=["strata_key"])
+        print(f"Matched {len(df_10k_thread_same_mid)} rows for same_mid dataset")
 
-        write_to_db(n10k_same_mid_sampled_df, n10k_same_mid_name)
+        write_to_db(df_10k_thread_same_mid, n10k_same_mid_name)
 
     n10k_sampled_df, _ = train_test_split(
         df_valid, train_size=10_000, stratify=df_valid["strata_key"], random_state=42
