@@ -446,5 +446,10 @@ Subject: Risk 2000 Boston - speaker reception 12 June 2000
  ---------------------
 
     """
+    print("---------normal--------------")
 
     print(clean_email_body(test_email))
+
+    print("---------thread--------------")
+
+    print(clean_full_chain(test_email))
