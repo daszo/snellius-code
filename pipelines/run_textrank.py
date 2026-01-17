@@ -27,7 +27,20 @@ def calculate_query_and_ed(row):
 
     text = f"{row['subject']} \n {row['body_clean']}"
 
-    row["text_rank_query"] = summarizer.summarize(text, words=15)
+    try:
+        # Summa returns empty string if text is too short for TextRank
+        summary = summarizer.summarize(text, words=15)
+
+        # FALLBACK: If summary is empty, just use the first 15 words of the original text
+        if not summary:
+            row["text_rank_query"] = " ".join(text.split()[:15])
+        else:
+            # Summa often returns newlines; clean them up
+            row["text_rank_query"] = " ".join(summary.split("\n"))
+
+    except Exception:
+        # If summa crashes completely, fallback to original text
+        row["text_rank_query"] = " ".join(text.split()[:15])
 
     # --- 2. Generate "Elaborative Description" (Keyword Extraction) ---
     # We want a list of salient terms that describe the document content.
