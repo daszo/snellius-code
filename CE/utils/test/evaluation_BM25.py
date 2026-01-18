@@ -138,11 +138,24 @@ if __name__ == "__main__":
     args = parser.parse_args()
     table_name = args.table_name
 
+    table_name1 = "N10k_thread"
+
     evaluator = BM25EmailSearchEvaluator(
-        input_file=f"data/test.{table_name}.docTquery", table_name=table_name
+        input_file=f"data/test.{table_name1}.docTquery", table_name=table_name1
     )
     evaluator.prepare_data()
     evaluator.build_index()
     evaluator.run_retrieval_phase()
     evaluator.compute_metrics()
-    evaluator.save_results("10k", "no_thread")
+    evaluator.save_results("10k", "thread")
+
+    table_name2 = "N100k_thread"
+
+    evaluator_ = BM25EmailSearchEvaluator(
+        input_file=f"data/test.{table_name2}.docTquery", table_name=table_name2
+    )
+    evaluator_.prepare_data()
+    evaluator_.build_index()
+    evaluator_.run_retrieval_phase()
+    evaluator_.compute_metrics()
+    evaluator_.save_results("100k", "thread")
