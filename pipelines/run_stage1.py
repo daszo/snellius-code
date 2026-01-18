@@ -11,7 +11,7 @@ def stage1():
     parser.add_argument("--thread", help="thread", action="store_true")
     args = parser.parse_args()
     thread = args.thread
-    clean_email_bodies_pipeline(keep_full_history=thread)
+    #clean_email_bodies_pipeline(keep_full_history=thread)
 
     if thread:
         run_text_rank(
