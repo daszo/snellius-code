@@ -1,0 +1,70 @@
+#!/bin/bash
+#SBATCH -J enron_dsi_100k_thread
+#SBATCH -p gpu_a100
+#SBATCH -N 1
+#SBATCH -G 2
+#SBATCH --cpus-per-task=18
+#SBATCH -t 120:00:00
+#SBATCH --mail-type=BEGIN,END
+#SBATCH --mail-user=daniel.van.oosteroom@student.uva.nl
+#SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/100k_thread_training.log
+# #SBATCH --qos=short
+
+#export NCCL_DEBUG=INFO
+#export NCCL_IB_DISABLE=0
+#export NCCL_NET_GDR_LEVEL=2
+#export PYTHONFAULTHANDLER=1 # This prevents "silent" exits by printing tracebacks on crashes
+
+exec > >(ts '[%Y-%m-%d %H:%M:%S]') 2>&1
+# 1. Environment Setup
+ENV_PATH="/gpfs/work5/0/prjs1828/DSI-QG"
+# Load the appropriate toolchain and python module for Snellius
+#module purge
+#module load 2022  # Or the specific version your venv was built with
+#Python/3.9.5-GCCcore-10.3.0
+
+# 2. I/O Optimization: Use Local Scratch ($TMPDIR)
+# Home and Project directories are network-mounted (slow).
+# SQLite/DB reads should happen on local SSD scratch.
+echo "Copying database to local scratch: $TMPDIR"
+cp "$ENV_PATH/data/enron.db" "$TMPDIR/enron.db"
+
+# 3. Execution
+# Activation is cleaner than manual PYTHONPATH manipulation
+source "$ENV_PATH/.venv/bin/activate"
+export PYTHONUNBUFFERED=1
+
+NAME="enron-100k-t5-base-DSI-Q-thread" 
+
+torchrun --nproc_per_node=2 run.py \
+	--task "DSI" \
+	--model_name "$ENV_PATH/local_models/google/t5-base" \
+	--run_name $NAME \
+        --max_length 512 \
+        --output_dir "$ENV_PATH/models/$NAME" \
+        --learning_rate 0.00005 \
+        --warmup_steps 5000 \
+        --per_device_train_batch_size 15 \
+        --per_device_eval_batch_size 16 \
+        --evaluation_strategy "steps" \
+	--eval_steps 1000 \
+        --max_steps 50000 \
+        --save_strategy "steps" \
+        --dataloader_num_workers 12 \
+        --save_steps 1000 \
+        --save_total_limit 5 \
+        --load_best_model_at_end True \
+        --gradient_accumulation_steps 1 \
+        --report_to "wandb" \
+        --logging_steps 100 \
+        --dataloader_drop_last False \
+        --metric_for_best_model "Hits@10" \
+        --greater_is_better True \
+        --remove_prompt True \
+        --db_name "$TMPDIR/enron.db" \
+	--table_name "N100k_thread" \
+	--label_smoothing_factor 0.1 \
+        --weight_decay 0.01
+	--save_size "100K" \
+	--save_experiment_type "thread" \
+	--save_version "v1.0" \

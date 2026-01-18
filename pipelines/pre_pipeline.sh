@@ -15,7 +15,7 @@ echo "Starting pipeline"
 echo "1. data cleaning and textrank"
 export PYTHONUNBUFFERED=1
 
-PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m pipelines.run_stage1 --thread
+#PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m pipelines.run_stage1 --thread
 
 RETURN_SEQ=1
 
