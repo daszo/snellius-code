@@ -18,6 +18,5 @@ export PYTHONUNBUFFERED=1
 
 # Point to the cached location
 export HF_HOME="/gpfs/work5/0/prjs1828/DSI-QG/hf_cache"
-export HF_HUB_OFFLINE=1
 
 torchrun --nproc_per_node=1 test_100k_thread_dsi.py\

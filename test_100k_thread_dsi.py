@@ -12,8 +12,10 @@ def main():
 
     top_model = "checkpoint-39000"
 
+    final_model_path = f"/gpfs/work5/0/prjs1828/DSI-QG/models/{train_name}/{top_model}"
+
     run_args = RunArguments(
-        model_name="/gpfs/work5/0/prjs1828/DSI-QG/models/{train_name}/{top_model}",
+        model_name=final_model_path,
         task="DSI",
         db_name="data/enron.db",
         train_size=0.8,
@@ -26,7 +28,7 @@ def main():
 
     df = load_db(run_args.table_name, run_args.db_name)
 
-    tokenizer = AutoTokenizer.from_pretrained("t5-base")
+    tokenizer = AutoTokenizer.from_pretrained(run_args.model_name)
 
     def count_t5_tokens(text):
         return len(tokenizer.encode(text))
