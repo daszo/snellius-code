@@ -13,7 +13,7 @@ def main():
     top_model = "checkpoint-39000"
 
     run_args = RunArguments(
-        model_name="/gpfs/work5/0/prjs1828/DSI-QG/models/{train_name}/{top_model}",
+        model_name=f"/gpfs/work5/0/prjs1828/DSI-QG/models/{train_name}/{top_model}",
         task="DSI",
         db_name="data/enron.db",
         train_size=0.8,
