@@ -415,7 +415,7 @@ def main():
 
 
         evaluator = DSIEmailSearchEvaluator(
-            trainer=trainer, run_args=run_args, input_file=run_args.test_file, df=df
+            trainer=trainer, run_args=run_args, input_file=run_args.test_file, df=df, tokenizer=tokenizer
         )
 
         print("Preparing Data...")
