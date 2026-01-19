@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #SBATCH --account=gisr113267
 #SBATCH --partition=genoa       # Explicitly target CPU nodes (commonly 'genoa', 'rome', or 'batch')
-#SBATCH -t 30:00:00
+#SBATCH -t 3:00:00
 #SBATCH --nodes=1               # Force all tasks/cpus onto a single node
 #SBATCH --ntasks=1              # Run 1 main task (the python script)
 #SBATCH --cpus-per-task=16      # Give that task 16 cores for multiprocessing
 #SBATCH --mem=64G               # Request explicit RAM (BM25 can be memory hungry)
-#SBATCH --job-name=test_bm25
+#SBATCH --job-name=test_bm25_thread
 #SBATCH --mail-type=BEGIN,END
-#SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/test_bm25.log
+#SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/test_bm25_thread.log
 
 exec > >(ts '[%Y-%m-%d %H:%M:%S]') 2>&1
 
@@ -28,4 +28,4 @@ echo "Starting testing"
 
 export PYTHONUNBUFFERED=1 
 
-/gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m CE.utils.test.evaluation_BM25 "N10k"
+/gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m CE.utils.test.evaluation_BM25 "N10k_thread"

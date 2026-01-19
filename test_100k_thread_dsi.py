@@ -6,14 +6,14 @@ from transformers import AutoTokenizer
 
 def main():
 
-    tabel_name = "N10k_thread"
+    table_name = "N100k_thread"
 
-    train_name = "enron-10k-t5-base-DSI-Q-thread"
+    train_name = "enron-100k-t5-base-DSI-Q-thread"
 
-    top_model = "checkpoint-38000"
+    top_model = "checkpoint-39000"
 
     run_args = RunArguments(
-        model_name="/gpfs/work5/0/prjs1828/DSI-QG/models/enron-10k-mt5-base-DSI-Q-classicv1.2/checkpoint-44000",
+        model_name="/gpfs/work5/0/prjs1828/DSI-QG/models/{train_name}/{top_model}",
         task="DSI",
         db_name="data/enron.db",
         train_size=0.8,
@@ -50,7 +50,7 @@ def main():
     evaluator.compute_metrics()
 
     print("Saving Results...")
-    evaluator.save_results(size="10k", experiment_type="thread", version="v1.0")
+    evaluator.save_results(size="100k", experiment_type="thread", version="v1.0")
 
 
 main()

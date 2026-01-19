@@ -147,3 +147,5 @@ wandb/
 corpus_data/
 indexes/
 dsi_eval_cache/
+
+corpus_data*

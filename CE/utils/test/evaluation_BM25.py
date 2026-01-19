@@ -22,8 +22,9 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
     ):
         self.table_name = table_name
         self.input_file = input_file
-        self.corpus_dir = corpus_dir
-        self.index_dir = index_dir
+        self.corpus_dir = corpus_dir + "_" + table_name
+        self.index_dir = index_dir + "_" + table_name
+
         self.threads = threads
 
         self.mid_to_textid = {}
