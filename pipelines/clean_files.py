@@ -226,13 +226,13 @@ def clean_full_chain(text: str) -> str:
 # ==========================================
 
 
-def clean_email_bodies_pipeline(DB_PATH="data/enron.db", keep_full_history=False):
+def clean_email_bodies_pipeline(DB_PATH="data/enron.db", keep_full_history=False, table_from="Message", table_to="Message"):
     """
     Added 'keep_full_history' flag to toggle between behavior A and B.
     """
     print("starting to load")
     conn = sqlite3.connect(DB_PATH)
-    df = pd.read_sql_query("SELECT * FROM Message", conn)
+    df = pd.read_sql_query(f"SELECT * FROM {table_from}", conn)
     conn.close()
     print(f"loaded database {DB_PATH}")
 
@@ -270,11 +270,11 @@ def clean_email_bodies_pipeline(DB_PATH="data/enron.db", keep_full_history=False
 
     conn = sqlite3.connect(DB_PATH)
     df.to_sql(
-        name="Message", con=conn, if_exists="replace", index=False, chunksize=10000
+        name=table_to, con=conn, if_exists="replace", index=False, chunksize=10000
     )
 
     cursor = conn.cursor()
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_sim_mid ON Message (mid)")
+    cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_sim_mid ON {table_to} (mid)")
     conn.commit()
     conn.close()
 

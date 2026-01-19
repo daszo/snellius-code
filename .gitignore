@@ -149,3 +149,5 @@ indexes/
 dsi_eval_cache/
 
 corpus_data*
+
+hf_cache/*
