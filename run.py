@@ -72,6 +72,7 @@ class RunArguments:
     save_version: str =field(default="v1.0"),
     
     thread: int = field(default=0),
+    same_mid: Optional[str] = field(default=None)
 
 
 def make_compute_metrics(tokenizer, valid_ids):
@@ -479,9 +480,13 @@ def main():
             else:
                 df_result = df_db.merge(df_pred, left_index=True, right_on="mid", how="left")
 
-                destination_table_name = (
-                    f"{table_name}_d2q_q{run_args.num_return_sequences}"
-                )
+                if run_args.same_mid:
+                    destination_table_name = run_args.same_mid
+
+                else:
+                    destination_table_name = (
+                        f"{table_name}_d2q_q{run_args.num_return_sequences}"
+                    )
 
             write_to_db(df_result, destination_table_name)
 
