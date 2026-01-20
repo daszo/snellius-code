@@ -83,13 +83,22 @@ class GenerateDataset(Dataset):
                 df = load_db(table_name)
                 self.db_df = df
 
-                for mid, row in df.iterrows():
-                    self.data.append(
-                        (
-                            mid,
-                            f"subject: {row['subject']} body: {row['body_clean']}",
+                if "body_clean_and_subject" in df.columns:
+                    for mid, row in df.iterrows():
+                        self.data.append(
+                            (
+                                mid,
+                                row["body_clean_and_subject"]
+                            )
                         )
-                    )
+                else:
+                    for mid, row in df.iterrows():
+                        self.data.append(
+                            (
+                                mid,
+                                f"subject: {row['subject']} body: {row['body_clean']}",
+                            )
+                        )
 
         else:
             with open(path_to_data, "r") as f:

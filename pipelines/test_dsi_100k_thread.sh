@@ -4,7 +4,7 @@
 #SBATCH -N 1
 #SBATCH -G 1
 #SBATCH --cpus-per-task=18
-#SBATCH -t 0:30:00
+#SBATCH -t 3:00:00
 #SBATCH --mail-type=BEGIN,END
 #SBATCH --mail-user=daniel.van.oosteroom@student.uva.nl
 #SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/enron_dsi_100k_thread.log

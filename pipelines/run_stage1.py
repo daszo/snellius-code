@@ -30,7 +30,7 @@ def stage1():
 
     if table_to:
         if destination_table is None:
-            rause ValueError("no destination table given")
+            raise ValueError("no destination table given")
         if thread:
             run_text_rank(
                 table=table_to,

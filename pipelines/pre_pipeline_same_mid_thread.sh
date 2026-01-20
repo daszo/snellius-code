@@ -15,7 +15,7 @@ echo "Starting pipeline"
 echo "1. data cleaning and textrank"
 export PYTHONUNBUFFERED=1
 
-PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m pipelines.run_stage1 --thread --table_from "N10k" --table_to "N10k_thread_same_mid" destination_table "N10k_thread_same_mid_tr"
+# PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m pipelines.run_stage1 --thread --table_from "N10k" --table_to "N10k_thread_same_mid" --destination_table "N10k_thread_same_mid_tr"
 
 RETURN_SEQ=1
 
@@ -35,8 +35,8 @@ PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun --nproc_per_
     --report_to wandb \
     --logging_steps 100 \
     --num_return_sequences $RETURN_SEQ \
-    --thread 1
---same_mid N10k_thread_same_mid
+    --thread 1 \
+    --same_mid N10k_thread_same_mid_full \
 
 echo "3. splitsing the data"
 
