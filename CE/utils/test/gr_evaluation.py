@@ -151,7 +151,8 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
             self.trainer = trainer
             self.model = None
             if tokenizer is None:
-                raise ValueError("Tokenizer should be set if trainer is given.")
+                tokenizer = self.trainer.tokenizer
+                # raise ValueError("Tokenizer should be set if trainer is given.")
             self.tokenizer = tokenizer
             self.restrict_decode_vocab = None
 
