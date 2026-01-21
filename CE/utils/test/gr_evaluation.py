@@ -133,7 +133,8 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
 
                 if restrict_decode_vocab is None:
                     del restrict_decode_vocab
-                    decoder_trie = generate_trie_dict(df, tokenizer) def restrict_decode_vocab(batch_idx, prefix_beam):
+                    decoder_trie = generate_trie_dict(df, tokenizer) 
+                    def restrict_decode_vocab(batch_idx, prefix_beam):
                         return decoder_trie.get(prefix_beam.tolist())
 
             if model is None and (run_args is None or run_args.model_name == ""):

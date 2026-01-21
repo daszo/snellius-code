@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J enron_dsi_test_10k_thread
+#SBATCH -J enron_dsi_test_10k_thread_same_mid
 #SBATCH -p gpu_a100
 #SBATCH -N 1
 #SBATCH -G 1
@@ -7,7 +7,7 @@
 #SBATCH -t 0:30:00
 #SBATCH --mail-type=BEGIN,END
 #SBATCH --mail-user=daniel.van.oosteroom@student.uva.nl
-#SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/enron_dsi_test_10k_thread.log
+#SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/enron_dsi_test_10k_thread_same_mid.log
 
 exec > >(ts '[%Y-%m-%d %H:%M:%S]') 2>&1
 
