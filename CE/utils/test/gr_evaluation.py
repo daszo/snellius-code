@@ -272,7 +272,7 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
     def save_debug_logs(self):
         """Saves the detailed inference logs to a CSV file."""
         name = self.input_file.split("/")[-1]
-        log_path = os.path.join(self.eval_dir, name + ".dsi_inference_debug_logs.csv")
+        log_path = os.path.join("data_logs", name + ".dsi_inference_debug_logs.csv")
         print(f"Saving detailed inference logs to {log_path}...")
         
         headers = ["query", "target_doc_id", "rank", "model_predictions"]
