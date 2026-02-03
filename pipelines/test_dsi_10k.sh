@@ -15,4 +15,7 @@ ENV_PATH="/gpfs/work5/0/prjs1828/DSI-QG"
 source "$ENV_PATH/.venv/bin/activate"
 export PYTHONUNBUFFERED=1
 
+# Point to the cached location
+export HF_HOME="/gpfs/work5/0/prjs1828/DSI-QG/hf_cache"
+
 torchrun --nproc_per_node=1 test.py
