@@ -11,6 +11,7 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from CE.utils.test.general import BaseMetricCalculator
 from CE.utils.database import load_db, write_to_db, save_result
 from CE.tries import generate_trie_dict
+import csv
 
 
 class DSIEvalDataset(Dataset):
@@ -190,7 +191,7 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
         self.valid_file_path = valid_file_path
 
     def run_retrieval_phase(self):
-        """Runs the DSIPredictor and calculates ranks."""
+        """Runs inference, calculates ranks, and logs detailed debug info."""
         if not self.valid_file_path:
             raise ValueError("Run prepare_data() before run_retrieval_phase()")
 
@@ -203,14 +204,13 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
 
         collator = IndexingCollator(
             tokenizer=self.tokenizer,
-            padding="longest",  
+            padding="longest",
         )
 
-        if trainer := self.trainer:
-            predictor = trainer 
+        # 2. Setup Predictor
+        if self.trainer:
+            predictor = self.trainer
         else:
-        
-            # 2. Setup Predictor
             predictor = DSIPredictor(
                 model=self.model,
                 tokenizer=self.tokenizer,
@@ -221,31 +221,66 @@ class DSIEmailSearchEvaluator(BaseMetricCalculator):
             )
 
         # 3. Run Inference
+        # predictions shape: (Total_Samples, Num_Beams, Seq_Len)
         predictions, labels = predictor.predict(dataset, collator)
 
-        # 4. Calculate Ranks
-        # predictions is list of shape (Batch, 20 beams, Seq_Len)
-        for i, beam_tokens_list in enumerate(predictions):
-            target_tokens = labels[i]
+        # 4. Calculate Ranks and Build Logs
+        self.detailed_logs = []  # Store debug info here
+        self.execution_results = [] # Reset results
 
-            # Decode Target
+        for i, beam_tokens_list in enumerate(tqdm(predictions, desc="Calculating Ranks")):
+            # Retrieve Original Query Text
+            # We assume dataset order matches prediction order (shuffle=False)
+            input_query = dataset.data[i]["text"]
+            
+            # Decode Target (Ground Truth)
+            target_tokens = labels[i]
             target_doc_id = self.tokenizer.decode(
                 [t for t in target_tokens if t != -100], skip_special_tokens=True
             ).strip()
 
             rank = float("inf")
+            decoded_beams = []
 
             # Check beams
             for r, beam_toks in enumerate(beam_tokens_list):
                 pred_doc_id = self.tokenizer.decode(
                     beam_toks, skip_special_tokens=True
                 ).strip()
+                
+                decoded_beams.append(pred_doc_id)
 
-                if pred_doc_id == target_doc_id:
+                # Find first match for rank
+                if rank == float("inf") and pred_doc_id == target_doc_id:
                     rank = r + 1
-                    break
+                    # We continue the loop to capture all beams for the CSV
 
             self.execution_results.append(rank)
+
+            # Store the detailed log for this sample
+            self.detailed_logs.append({
+                "query": input_query,
+                "target_doc_id": target_doc_id,
+                "rank": rank if rank != float("inf") else -1, # -1 indicates not found
+                # Join beams with a pipe | or semicolon ; to keep it in one CSV cell
+                "model_predictions": " | ".join(decoded_beams) 
+            })
+
+        # Automatically save the logs
+        self.save_debug_logs()
+
+    def save_debug_logs(self):
+        """Saves the detailed inference logs to a CSV file."""
+        name = self.input_file.split("/")[-1]
+        log_path = os.path.join(self.eval_dir, name + ".dsi_inference_debug_logs.csv")
+        print(f"Saving detailed inference logs to {log_path}...")
+        
+        headers = ["query", "target_doc_id", "rank", "model_predictions"]
+        
+        with open(log_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(self.detailed_logs)
 
     def compute_metrics(self):
         """Computes MRR and Hits metrics."""

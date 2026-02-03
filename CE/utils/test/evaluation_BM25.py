@@ -2,11 +2,13 @@ import json
 import os
 import shutil
 import subprocess
+import csv
 from typing import List, Dict
 from pyserini.search.lucene import LuceneSearcher
 from CE.utils.database import save_result
 from CE.utils.test.general import BaseMetricCalculator
 from CE.utils.database import load_db
+from tqdm import tqdm
 import argparse
 import sys
 
@@ -29,54 +31,49 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
 
         self.mid_to_textid = {}
         self.queries = []
-        # self.queries_textrank = []
-        # self.queries_d2q = []
 
-        # Phase 1 storage: Raw Ranks
+        # Storage
         self.execution_results = []
         self.final_metrics = []
+        self.detailed_logs = []  # Added for CSV logging
 
     def prepare_data(self):
+        """Prepares corpus and query list."""
         if os.path.exists(self.corpus_dir):
             shutil.rmtree(self.corpus_dir)
         os.makedirs(self.corpus_dir)
 
+        # 1. Load Queries from Input File
         with open(self.input_file, "r", encoding="utf-8") as fin:
             for line in fin:
                 data = json.loads(line)
-                text_id, body = (
-                    data.get("text_id").strip(),
-                    data.get("text", ""),
-                )
-                # fout.write(json.dumps({"id": mid, "contents": body}) + "\n")
-                # self.mid_to_textid[mid] = text_id
+                text_id = data.get("text_id", "").strip()
+
                 if data.get("text"):
                     self.queries.append(
                         {"target_text_id": text_id, "query": data["text"]}
                     )
 
-                # if data.get("text_rank_query"):
-                #     self.queries_textrank.append(
-                #         {"target_text_id": text_id, "query": data["text_rank_query"]}
-                #     )
-                # if data.get("doctoquery"):
-                #     self.queries_d2q.append(
-                #         {"target_text_id": text_id, "query": data["doctoquery"]}
-                # )
+        # 2. Build Corpus from Database (for indexing)
         with open(
             os.path.join(self.corpus_dir, "docs.jsonl"), "w", encoding="utf-8"
         ) as fout:
-
             df = load_db(self.table_name)
             for _, row in df.iterrows():
                 mid = str(row["mid"])
                 body = row["body_clean_and_subject"]
+
+                # Write for Pyserini
                 fout.write(json.dumps({"id": mid, "contents": body}) + "\n")
+
+                # Store mapping: mid (internal ID) -> text_id (Target ID)
                 self.mid_to_textid[mid] = row["elaborative_description"].strip()
 
     def build_index(self):
+        """Builds the Pyserini Lucene index."""
         if os.path.exists(self.index_dir):
             shutil.rmtree(self.index_dir)
+
         cmd = [
             sys.executable,
             "-m",
@@ -98,20 +95,64 @@ class BM25EmailSearchEvaluator(BaseMetricCalculator):
         subprocess.run(cmd, check=True)
 
     def run_retrieval_phase(self, k1=0.9, b=0.4):
-        """Phase 1: Run all datapoints and extract ranks."""
+        """Phase 1: Run all datapoints, extract ranks, and save detailed logs."""
         searcher = LuceneSearcher(self.index_dir)
         searcher.set_bm25(k1=k1, b=b)
 
-        ranks = []
-        for q in self.queries:
-            hits = searcher.search(q["query"], k=20)
+        self.execution_results = []
+        self.detailed_logs = []
+
+        for q in tqdm(self.queries, desc="Running BM25 Retrieval"):
+            query_text = q["query"]
+            target_id = q["target_text_id"]
+
+            # Get Top 20 Hits
+            hits = searcher.search(query_text, k=20)
+
+            # Convert Lucene Internal IDs (mid) to your Text IDs
+            retrieved_text_ids = []
+            for hit in hits:
+                # Map mid -> text_id. Default to hit.docid if mapping fails
+                mapped_id = self.mid_to_textid.get(hit.docid, hit.docid)
+                retrieved_text_ids.append(mapped_id)
+
+            # Calculate Rank
             rank = float("inf")
-            for i, hit in enumerate(hits):
-                if self.mid_to_textid.get(hit.docid) == q["target_text_id"]:
-                    rank = i + 1
-                    break
-            ranks.append(rank)
-        self.execution_results = ranks
+            if target_id in retrieved_text_ids:
+                # +1 because index is 0-based
+                rank = retrieved_text_ids.index(target_id) + 1
+
+            self.execution_results.append(rank)
+
+            # Store Log
+            self.detailed_logs.append(
+                {
+                    "query": query_text,
+                    "target_text_id": target_id,
+                    "rank": rank if rank != float("inf") else -1,
+                    # Join top 20 predictions with pipe for CSV
+                    "model_predictions": " | ".join(retrieved_text_ids),
+                }
+            )
+
+        # Save the logs immediately
+        self.save_debug_logs()
+
+    def save_debug_logs(self):
+        """Saves the detailed retrieval logs to a CSV file."""
+        # Save in the index directory or current dir, depending on preference.
+        # Here I save it alongside the index dir for organization.
+
+        name = self.input_file.split("/")[-1]
+        log_path = os.path.join(self.index_dir, name + ".bm25_debug_logs.csv")
+        print(f"Saving detailed inference logs to {log_path}...")
+
+        headers = ["query", "target_text_id", "rank", "model_predictions"]
+
+        with open(log_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(self.detailed_logs)
 
     def compute_metrics(self):
         """Phase 2: Calculate metrics from stored ranks."""
@@ -150,13 +191,13 @@ if __name__ == "__main__":
     evaluator.compute_metrics()
     evaluator.save_results("10k", "thread_same_mid")
 
-    # table_name2 = "N100k_thread"
-    #
-    # evaluator_ = BM25EmailSearchEvaluator(
-    #     input_file=f"data/test.{table_name2}.docTquery", table_name=table_name2
-    # )
-    # evaluator_.prepare_data()
-    # evaluator_.build_index()
-    # evaluator_.run_retrieval_phase()
-    # evaluator_.compute_metrics()
-    # evaluator_.save_results("100k", "thread")
+    table_name2 = "N100k_thread"
+
+    evaluator_ = BM25EmailSearchEvaluator(
+        input_file=f"data/test.{table_name2}.docTquery", table_name=table_name2
+    )
+    evaluator_.prepare_data()
+    evaluator_.build_index()
+    evaluator_.run_retrieval_phase()
+    evaluator_.compute_metrics()
+    evaluator_.save_results("100k", "thread")
