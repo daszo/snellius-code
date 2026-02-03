@@ -7,8 +7,7 @@
 #SBATCH -t 0:30:00
 #SBATCH --mail-type=BEGIN,END
 #SBATCH --mail-user=daniel.van.oosteroom@student.uva.nl
-#SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/dsi_test.log
-
+#SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/enron_dsi_10k_no_thread..log
 
 exec > >(ts '[%Y-%m-%d %H:%M:%S]') 2>&1
 
@@ -16,4 +15,4 @@ ENV_PATH="/gpfs/work5/0/prjs1828/DSI-QG"
 source "$ENV_PATH/.venv/bin/activate"
 export PYTHONUNBUFFERED=1
 
-torchrun --nproc_per_node=1 test.py\
+torchrun --nproc_per_node=1 test.py
