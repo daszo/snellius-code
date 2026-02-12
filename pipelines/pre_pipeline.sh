@@ -24,7 +24,7 @@ echo "2. Title generation"
 PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun --nproc_per_node=1 run.py \
     --do_predict \
     --task generation \
-    --table_name v_CleanMessages_thread \
+    --table_name full_text_rank_thread \
     --model_name /gpfs/work5/0/prjs1828/DSI-QG/local_models/t5-headline \
     --per_device_eval_batch_size 32 \
     --run_name docTquery-full-generation \
@@ -39,4 +39,4 @@ PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun --nproc_per_
 
 echo "3. splitsing the data"
 
-PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m pipelines.prep_datasets --thread "full_thread"
+PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/python3 -m pipelines.prep_datasets --thread "full_text_rank_thread_d2q_q1"

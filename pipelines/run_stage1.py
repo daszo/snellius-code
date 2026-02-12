@@ -19,7 +19,6 @@ def stage1():
 
     args = parser.parse_args()
     thread = args.thread
-    view = args.view
 
     table_from = args.table_from
     table_to = args.table_to
