@@ -40,23 +40,15 @@ def stage1():
     if table_to:
         if destination_table is None:
             raise ValueError("no destination table given")
-        if thread:
-            run_text_rank(
-                table=table_to,
-                destination_table=destination_table,
-                view=view,
-            )
-        else:
-            run_text_rank(
-                table=table_to,
-                destination_table=destination_table,
-            )
+        run_text_rank(
+            table=table_to,
+            destination_table=destination_table,
+        )
 
     if thread:
         run_text_rank(
             table="v_CleanMessages_thread",
-            destination_table="text_rank_thread",
-            view=view,
+            destination_table="full_text_rank_thread",
         )
     else:
         run_text_rank(table="v_CleanMessages", destination_table="full_text_rank")

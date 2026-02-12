@@ -471,22 +471,22 @@ def main():
 
             df_pred = pd.DataFrame(data)
 
-            if run_args.thread == 1:
-                df_result = df_pred[["mid", "doctoquery"]]
+            # if run_args.thread == 1:
+            #     df_result = df_pred[["mid", "doctoquery"]]
+            #
+            #     destination_table_name = (
+            #         f"thread_d2q_q{run_args.num_return_sequences}"
+            #     )
+            # else:
+            df_result = df_db.merge(df_pred, left_index=True, right_on="mid", how="left")
 
-                destination_table_name = (
-                    f"thread_d2q_q{run_args.num_return_sequences}"
-                )
+            if run_args.same_mid:
+                destination_table_name = run_args.same_mid
+
             else:
-                df_result = df_db.merge(df_pred, left_index=True, right_on="mid", how="left")
-
-                if run_args.same_mid:
-                    destination_table_name = run_args.same_mid
-
-                else:
-                    destination_table_name = (
-                        f"{table_name}_d2q_q{run_args.num_return_sequences}"
-                    )
+                destination_table_name = (
+                    f"{table_name}_d2q_q{run_args.num_return_sequences}"
+                )
 
             write_to_db(df_result, destination_table_name)
 

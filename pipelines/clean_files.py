@@ -16,7 +16,7 @@ HISTORY_DELIMITERS = [
 
 
 def remove_legal_disclaimer(text: str) -> str:
-    """(USER LOGIC) Removes specific legal disclaimer."""
+    """Removes specific legal disclaimer."""
     disclaimer_text = """This e-mail message may contain legally privileged and/or confidential
     information. If you are not the intended recipient(s), or the employee
     or agent responsible for delivery of this message to the intended
@@ -33,7 +33,7 @@ def remove_legal_disclaimer(text: str) -> str:
 
 
 def prune_signature_footer(text: str) -> str:
-    """(GEMINI LOGIC) Reverse scan to eat the signature block."""
+    """ Reverse scan to eat the signature block."""
     if not text:
         return ""
 
@@ -84,14 +84,14 @@ def prune_signature_footer(text: str) -> str:
 
 def clean_segment_content(text: str) -> str:
     """
-    (REFACTORED) Applies the regex scrubbing and signature pruning.
+     Applies the regex scrubbing and signature pruning.
     This logic is now separate from the history truncation so it can be
     applied to history segments too.
     """
     if not text:
         return ""
 
-    # --- Regex Scrubbing (USER LOGIC) ---
+    # --- Regex Scrubbing ---
     text = remove_legal_disclaimer(text)
     text = re.sub(r"\*{10,}[\s\S]*?\*{10,}", "", text)  # Enron block
     text = re.sub(r"^[\s>]+", "", text, flags=re.MULTILINE)  # Quotes
@@ -124,7 +124,7 @@ def clean_segment_content(text: str) -> str:
     text = re.sub(r"\b\w+(?:\.[a-zA-Z]\w*)+\b", "", text)
     text = re.sub(r"^\s*\?+\s*(?:\r?\n|\r)?", "", text, flags=re.MULTILINE)
 
-    # --- Signature Pruning (GEMINI LOGIC) ---
+    # --- Signature Pruning ---
     text = prune_signature_footer(text)
 
     # Final Polish
@@ -138,7 +138,7 @@ def clean_segment_content(text: str) -> str:
 
 
 def truncate_email_history(text: str) -> str:
-    """(ORIGINAL) Returns ONLY the newest message, cutting at the first delimiter."""
+    """ Returns ONLY the newest message, cutting at the first delimiter."""
     if not text:
         return ""
     lines = text.splitlines()
@@ -152,7 +152,7 @@ def truncate_email_history(text: str) -> str:
 
 def split_email_chain(text: str) -> list[str]:
     """
-    (NEW) Splits an email into a list of messages [Newest, Reply1, Reply2...]
+     Splits an email into a list of messages [Newest, Reply1, Reply2...]
     based on the history delimiters.
     """
     if not text:

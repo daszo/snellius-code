@@ -51,14 +51,14 @@ def calculate_query_and_ed(row):
     return row
 
 
-def run_text_rank(table="N10k", destination_table="N10k_text_rank", view=False):
+def run_text_rank(table="N10k", destination_table="N10k_text_rank"):
 
     df = load_db(table)
 
     df_queries = df.apply(lambda x: calculate_query_and_ed(x), axis=1)
 
     print("Finished text rank query generation")
-    if view:
-        df_queries = df_queries[["mid", "text_rank_query", "elaborative_description"]]
+    # if view:
+    #     df_queries = df_queries[["mid", "text_rank_query", "elaborative_description"]]
 
     write_to_db(df_queries, destination_table)
