@@ -64,7 +64,7 @@ torchrun --nproc_per_node=2 run.py \
         --db_name "$TMPDIR/enron.db" \
 	--table_name "N10k_thread_same_mid" \
 	--label_smoothing_factor 0.1 \
-        --weight_decay 0.01
+        --weight_decay 0.01 \
 	--save_size "10K" \
 	--save_experiment_type "thread_same_mid" \
 	--save_version "v1.0" \

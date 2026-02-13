@@ -7,7 +7,7 @@
 #SBATCH -t 10:00:00
 #SBATCH --mail-type=BEGIN,END
 #SBATCH --mail-user=daniel.van.oosteroom@student.uva.nl
-#SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/10k_thread_training.log
+#SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/10k_training.log
 # #SBATCH --qos=short
 
 #export NCCL_DEBUG=INFO
@@ -34,7 +34,7 @@ cp "$ENV_PATH/data/enron.db" "$TMPDIR/enron.db"
 source "$ENV_PATH/.venv/bin/activate"
 export PYTHONUNBUFFERED=1
 
-NAME="enron-10k-t5-base-DSI-Q-threadv1_1" 
+NAME="enron-10k-t5-base-DSI-Q-no_thread_v1_3" 
 
 torchrun --nproc_per_node=2 run.py \
 	--task "DSI" \
@@ -62,9 +62,9 @@ torchrun --nproc_per_node=2 run.py \
         --greater_is_better True \
         --remove_prompt True \
         --db_name "$TMPDIR/enron.db" \
-	--table_name "N10k_thread" \
+	--table_name "N10k_d2q_q1_new" \
 	--label_smoothing_factor 0.1 \
         --weight_decay 0.01 \
 	--save_size "10K" \
-	--save_experiment_type "thread" \
-	--save_version "v1.1" \
+	--save_experiment_type "no_thread" \
+	--save_version "v1.3" \

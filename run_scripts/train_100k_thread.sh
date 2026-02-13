@@ -4,7 +4,7 @@
 #SBATCH -N 1
 #SBATCH -G 2
 #SBATCH --cpus-per-task=18
-#SBATCH -t 120:00:00
+#SBATCH -t 30:00:00
 #SBATCH --mail-type=BEGIN,END
 #SBATCH --mail-user=daniel.van.oosteroom@student.uva.nl
 #SBATCH --output=/gpfs/work5/0/prjs1828/DSI-QG/logs/100k_thread_training.log
@@ -34,7 +34,7 @@ cp "$ENV_PATH/data/enron.db" "$TMPDIR/enron.db"
 source "$ENV_PATH/.venv/bin/activate"
 export PYTHONUNBUFFERED=1
 
-NAME="enron-100k-t5-base-DSI-Q-thread" 
+NAME="enron-100k-t5-base-DSI-Q-threadv1_1" 
 
 torchrun --nproc_per_node=2 run.py \
 	--task "DSI" \
@@ -64,7 +64,7 @@ torchrun --nproc_per_node=2 run.py \
         --db_name "$TMPDIR/enron.db" \
 	--table_name "N100k_thread" \
 	--label_smoothing_factor 0.1 \
-        --weight_decay 0.01
+        --weight_decay 0.01 \
 	--save_size "100K" \
 	--save_experiment_type "thread" \
-	--save_version "v1.0" \
+	--save_version "v1.1" \

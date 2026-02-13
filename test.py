@@ -6,11 +6,8 @@ from transformers import AutoTokenizer
 
 def main():
 
-    tabel_name = "N10k_thread"
+    table_name = "N10k"
 
-    train_name = "enron-10k-t5-base-DSI-Q-thread"
-
-    top_model = "checkpoint-38000"
 
     run_args = RunArguments(
         model_name="/gpfs/work5/0/prjs1828/DSI-QG/models/enron-10k-mt5-base-DSI-Q-classicv1.2/checkpoint-44000",
