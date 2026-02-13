@@ -380,7 +380,7 @@ if "__main__" == __name__:
         model_name="t5-base",  # Use a small model for testing
         task="DSI",
         table_name="test_emails",  # Dummy table name
-        db_name="data/enron.dc",  # Dummy DB
+        db_name="data/enron.db",  # Dummy DB
         train_size=0.8,
         validate_size=0.1,
         test_size=0.1,

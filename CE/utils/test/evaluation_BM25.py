@@ -177,19 +177,41 @@ if __name__ == "__main__":
 
     # Positional argument (Required)
     parser.add_argument("table_name", help="table name")
-    args = parser.parse_args()
-    table_name = args.table_name
+    parser.add_argument("size", help="table name")
+    parser.add_argument("version", help="table name")
 
-    table_name1 = table_name
+    parser.add_argument("--thread", help="thread", action="store_true")
+
+    args = parser.parse_args()
+
+    if args.thread:
+        print("Running BM25 Evaluation with Threaded Data")
+        thread = "thread"
+    else:
+        print("Running BM25 Evaluation with Non-Threaded Data")
+        thread = "no_thread"
+
+    table_name = args.table_name
+    if not table_name:
+        raise ValueError("table_name is required")
+
+    size = args.size
+
+    if not size:
+        raise ValueError("size is required")
+
+    if not (version := args.version):
+        print("version not provided, defaulting to v1.0")
+        version = "v1.0"
 
     evaluator = BM25EmailSearchEvaluator(
-        input_file=f"data/test.{table_name1}.docTquery", table_name=table_name1
+        input_file=f"data/test.{table_name}.docTquery", table_name=table_name
     )
     evaluator.prepare_data()
     evaluator.build_index()
     evaluator.run_retrieval_phase()
     evaluator.compute_metrics()
-    evaluator.save_results("10k", "no_thread")
+    evaluator.save_results(size, thread, version)
 
     # table_name2 = "N100k_thread"
     #
