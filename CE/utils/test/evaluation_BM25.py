@@ -176,9 +176,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A simple argument parser")
 
     # Positional argument (Required)
-    parser.add_argument("table_name", help="table name")
-    parser.add_argument("size", help="table name")
-    parser.add_argument("version", help="table name")
+    parser.add_argument("--table_name", help="table name")
+    parser.add_argument("--size", help="table name")
+    parser.add_argument("--version", help="table name")
 
     parser.add_argument("--thread", help="thread", action="store_true")
 
