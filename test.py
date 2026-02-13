@@ -8,9 +8,11 @@ def main():
 
     table_name = "N10k"
 
+    model_file = "enron-10k-t5-base-DSI-Q-no_thread_v1_3"
 
+    best_checkpoint = "checkpoint-43000"
     run_args = RunArguments(
-        model_name="/gpfs/work5/0/prjs1828/DSI-QG/models/enron-10k-mt5-base-DSI-Q-classicv1.2/checkpoint-44000",
+        model_name=f"/gpfs/work5/0/prjs1828/DSI-QG/models/{model_file}/{best_checkpoint}",
         task="DSI",
         db_name="data/enron.db",
         train_size=0.8,
@@ -47,7 +49,7 @@ def main():
     evaluator.compute_metrics()
 
     print("Saving Results...")
-    evaluator.save_results(size="10k", experiment_type="thread", version="v1.0")
+    evaluator.save_results(size="10k", experiment_type="no_thread", version="v1.3")
 
 
 main()

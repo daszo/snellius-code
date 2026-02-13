@@ -8,9 +8,9 @@ def main():
 
     table_name = "N10k_thread"
 
-    train_name = "enron-10k-t5-base-DSI-Q-thread"
+    train_name = "enron-10k-t5-base-DSI-Q-threadv1_1"
 
-    top_model = "checkpoint-38000"
+    top_model = "checkpoint-49000"
 
     run_args = RunArguments(
         model_name=f"/gpfs/work5/0/prjs1828/DSI-QG/models/{train_name}/{top_model}",
