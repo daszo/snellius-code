@@ -1,0 +1,4 @@
+
+total_time = 15:16:34.045315
+batches = 50000
+final_epoch = 7.49

@@ -33,8 +33,6 @@ import os
 from CE.utils.database import load_db, write_to_db
 
 from CE.tries import generate_trie_dict
-from CE.test.evaluation_BM25 import BM25EmailSearchEvaluator
-from CE.test.gr_evaluation import BM25EmailSearchEvaluator
 
 from sklearn.model_selection import train_test_split
 
@@ -47,7 +45,7 @@ set_seed(313)
 
 @dataclass
 class RunArguments:
-    model_name: str = field(default=None)
+    model_name: Optional[str] = field(default=None)
     model_path: Optional[str] = field(default=None)
     max_length: Optional[int] = field(default=32)
     id_max_length: Optional[int] = field(default=20)
@@ -67,6 +65,14 @@ class RunArguments:
     test_size: Optional[float] = 0.1
     query_type: Optional[str] = "mixed"
     split_by: Optional[str] = "query" # "email"
+
+    # --- settings for saving ---
+    save_size: str = field(default="N10k"),
+    save_experiment_type: str = field(default="base"),
+    save_version: str =field(default="v1.0"),
+    
+    thread: int = field(default=0),
+    same_mid: Optional[str] = field(default=None)
 
 
 def make_compute_metrics(tokenizer, valid_ids):
@@ -116,100 +122,115 @@ def verify_distributed_setup():
 
 def split_train_validate_test(run_args, local_rank: int) -> Tuple[Dict, bool, pd.DataFrame]:
     table_name = run_args.table_name
-
     df = load_db(run_args.table_name, run_args.db_name)
 
     semantic_ids = df['elaborative_description'].map(type).eq(str).all()
     if semantic_ids is True:    
-        # 1. Load the T5-base tokenizer
-        # T5 uses a SentencePiece-based tokenizer
         tokenizer = AutoTokenizer.from_pretrained("t5-base")
-
-        # 2. Function to count tokens
-        # T5 automatically adds an end-of-sequence token (</s>), so this count includes that.
         def count_t5_tokens(text):
             return len(tokenizer.encode(text))
-
-        # 3. Apply to your dataframe column (assuming column name is 'text')
         df['token_count'] = df['text'].apply(count_t5_tokens)
-
-        # 4. Find the longest sentence
-        longest_count = df['token_count'].max()
-
-        run_args.id_max_length = longest_count
+        run_args.id_max_length = df['token_count'].max()
 
     train_size = run_args.train_size
     validate_size = run_args.validate_size
     test_size = run_args.test_size
 
     total_proportion = train_size + test_size + validate_size
-
     if total_proportion > 1 or total_proportion < 0.98:
-        raise ValueError(f"Total {total_proportion} is more then 1, fix your sizes. train_size {train_size}, validate_size {validate_size}, test_size {test_size}")
+        raise ValueError(f"Total {total_proportion} is invalid. Check sizes.")
 
-    df_train, df_tmp = train_test_split(
-        df, 
-        train_size=0.8, 
-        random_state=42
+    # 1. Isolate the static bodies (kept separate as per your original code)
+    bodies = df[["body_clean_and_subject", "elaborative_description"]].copy()
+    
+    # 2. Prepare the main data for splitting
+    # We create a unique ID to track the original rows
+    df['orig_idx'] = df.index 
+    
+    # "Melt" the dataframe: Turn 1 row with 2 cols into 2 rows with 1 col
+    # This creates a dataframe with cols: [orig_idx, elaborative_description, text]
+    melted = df.melt(
+        id_vars=['orig_idx', 'elaborative_description'], 
+        value_vars=['text_rank_query', 'doctoquery'],
+        value_name='text'
     )
 
-    df_validate, df_test = train_test_split(
-        df_tmp, 
-        train_size = validate_size / (validate_size + test_size),
-        random_state =42
-    )
+    # Clean: Drop entries where text is NaN or empty string
+    melted = melted[melted['text'].notna() & (melted['text'] != "")]
 
-    collumn_names = [
-        "body_clean_and_subject",
-        "text_rank_query",
-        "doctoquery"
-    ]
+    # Shuffle everything once to ensure randomness
+    melted = melted.sample(frac=1, random_state=42).reset_index(drop=True)
+
+    # Group by the original row ID and take the first available item for the 'guaranteed' set
+    guaranteed_train = melted.groupby('orig_idx').head(1)
+    
+    # The remainder is everything else (the second column of the rows, if it existed)
+    remainder = melted.drop(guaranteed_train.index)
+
+    # Calculate exact counts for Test and Validation based on the TOTAL dataset size
+    total_samples = len(melted)
+    n_val = int(total_samples * validate_size)
+    n_test = int(total_samples * test_size)
+
+    # Ensure we have enough remainder to cover Test + Validate
+    # (You said Train > Test+Val, so mathematically this should always pass)
+    if len(remainder) < (n_val + n_test):
+        raise ValueError("Not enough 'spare' columns to fill Test/Val sets without violating the 'one-per-row-in-train' rule.")
+
+    # Slice the remainder to fill Test and Validate
+    df_validate = remainder.iloc[:n_val]
+    df_test = remainder.iloc[n_val : n_val + n_test]
+    
+    # All leftover remainder goes to Train
+    extra_train = remainder.iloc[n_val + n_test:]
+    
+    # Combine the guaranteed set with the extra set
+    df_train = pd.concat([guaranteed_train, extra_train]).sample(frac=1, random_state=42)
+
+    # ---------------------------------------------------------
+    # Writing to files
+    # ---------------------------------------------------------
 
     file_names = {}
+    
+    # Helper to clean up the write loop (since data is now already "exploded")
+    datasets = [("train", df_train), ("validate", df_validate), ("test", df_test)]
 
-
-    for name, target_df in [("train", df_train),
-                            ("validate", df_validate),
-                            ("test", df_test)
-                            ]:
-
+    for name, target_df in datasets:
         output_filename = f"data/{name}.{table_name}.docTquery"
-
         file_names[name] = output_filename
+
         if local_rank == 0:
             print(f"Writing DataFrame to {output_filename}...")
-
             with open(output_filename, "w") as f:
-                # Iterate over the rows of the DataFrame
-                for _, row in tqdm(
-                    target_df.iterrows(), total=len(target_df), desc="Writing file"
-                ):
-                    base_dict = row.to_dict()
+                
+                # Standard Data Writing
+                # Note: target_df now has 'text' and 'elaborative_description' directly.
+                # No need to loop over column names anymore.
+                for _, row in tqdm(target_df.iterrows(), total=len(target_df), desc=f"Writing {name}"):
+                    item_dict = {}
+                    item_dict['text'] = str(row['text'])
+                    item_dict['text_id'] = str(row['elaborative_description'])
+                    
+                    f.write(json.dumps(item_dict) + "\n")
 
+                # "Bodies" Writing (Only for Train)
+                if name == "train":
+                    for _, row in tqdm(bodies.iterrows(), total=len(bodies), desc="Writing bodies"):
+                        # Safety check for empty bodies
+                        if pd.isna(row["body_clean_and_subject"]):
+                            continue
 
-                    # Iterate through the 4 options to create 4 distinct entries
-                    for option in collumn_names:
-                        # Copy the dictionary to avoid overwriting previous iterations
-                        item_dict = base_dict.copy()
-
-                        text_id = str(item_dict['elaborative_description'])
+                        item_dict = {}
+                        item_dict['text'] = str(row["body_clean_and_subject"])
+                        item_dict['text_id'] = str(row['elaborative_description'])
                         
-                        new_item_dict = {}
-                        
-                        # Create the 'text' column by combining description and the specific option
-                        new_item_dict['text'] = f"{item_dict[option]}"
-                        new_item_dict['text_id'] = text_id
-                        
-                        # Dump the dictionary to a JSON string
-                        jitem = json.dumps(new_item_dict)
+                        f.write(json.dumps(item_dict) + "\n")
 
-                        # Write the JSON string followed by a newline
-                        f.write(jitem + "\n")
     if dist.is_initialized():
         dist.barrier()
 
     print("File writing complete.")
-
     return file_names, semantic_ids, df
 
 
@@ -296,8 +317,7 @@ def main():
 
             run_args.train_file = file_names["train"]
             run_args.valid_file = file_names["validate"]
-
-
+            run_args.test_file = file_names["test"]
 
 
         if table_name is not None and db_name is None:
@@ -327,7 +347,7 @@ def main():
         # TODO: implement beam first search
         ################################################################
         # docid generation constrain, we only generate integer docids.
-        if run_semantic == False:
+        if not run_semantic:
             SPIECE_UNDERLINE = "▁"
             INT_TOKEN_IDS = []
             for token, id in tokenizer.get_vocab().items():
@@ -390,6 +410,25 @@ def main():
 
         with open(f"logs/{training_args.run_name}_{datetime.datetime.now()}.txt", 'w') as f:
             f.write(write)
+        
+        from CE.utils.test.gr_evaluation import DSIEmailSearchEvaluator
+
+
+        evaluator = DSIEmailSearchEvaluator(
+            trainer=trainer, run_args=run_args, input_file=run_args.test_file, df=df, tokenizer=tokenizer
+        )
+
+        print("Preparing Data...")
+        evaluator.prepare_data()
+
+        print("Running Retrieval Phase (Inference)...")
+        evaluator.run_retrieval_phase()
+
+        print("Computing Metrics...")
+        evaluator.compute_metrics()
+
+        print("Saving Results...")
+        evaluator.save_results(size=run_args.save_size, experiment_type=run_args.save_experiment_type, version=run_args.save_version)
 
 
     elif run_args.task == "generation":
@@ -432,11 +471,22 @@ def main():
 
             df_pred = pd.DataFrame(data)
 
+            # if run_args.thread == 1:
+            #     df_result = df_pred[["mid", "doctoquery"]]
+            #
+            #     destination_table_name = (
+            #         f"thread_d2q_q{run_args.num_return_sequences}"
+            #     )
+            # else:
             df_result = df_db.merge(df_pred, left_index=True, right_on="mid", how="left")
 
-            destination_table_name = (
-                f"{table_name}_d2q_q{run_args.num_return_sequences}"
-            )
+            if run_args.same_mid:
+                destination_table_name = run_args.same_mid
+
+            else:
+                destination_table_name = (
+                    f"{table_name}_d2q_q{run_args.num_return_sequences}"
+                )
 
             write_to_db(df_result, destination_table_name)
 
@@ -453,8 +503,10 @@ def main():
                         jitem = json.dumps({"text_id": docid.item(), "text": query})
                         f.write(jitem + "\n")
 
+
     elif run_args.task == "test":
 
+            from CE.utils.test.evaluation_BM25 import BM25EmailSearchEvaluator
             file_names, run_semantic, df = split_train_validate_test(run_args, local_rank)
 
             run_args.test_file = file_names["test"]
@@ -464,30 +516,30 @@ def main():
             def restrict_decode_vocab(batch_idx, prefix_beam):
                 return decoder_trie.get(prefix_beam.tolist())
 
-        model,
-        tokenizer,
-        device,
-        restrict_decode_vocab,
-        id_max_length=20,
-        batch_size=8,
-
-        trainer = DSITrainer(
-            model=model,
-            tokenizer=tokenizer,
-            device=None,
-            args=training_args,
-            train_dataset=train_dataset,
-            eval_dataset=valid_dataset,
-            data_collator=IndexingCollator(
-                tokenizer,
-                padding="longest",
-            ),
-            compute_metrics=make_compute_metrics(
-                fast_tokenizer, train_dataset.valid_ids
-            ),
-            restrict_decode_vocab=restrict_decode_vocab ,
-            id_max_length=run_args.id_max_length,
-        )
+#        model,
+#        tokenizer,
+#        device,
+#        restrict_decode_vocab,
+#        id_max_length=20,
+#        batch_size=8,
+#
+#        trainer = DSITrainer(
+#            model=model,
+#            tokenizer=tokenizer,
+#            device=None,
+#            args=training_args,
+#            train_dataset=train_dataset,
+#            eval_dataset=valid_dataset,
+#            data_collator=IndexingCollator(
+#                tokenizer,
+#                padding="longest",
+#            ),
+#            compute_metrics=make_compute_metrics(
+#                fast_tokenizer, train_dataset.valid_ids
+#            ),
+#            restrict_decode_vocab=restrict_decode_vocab ,
+#            id_max_length=run_args.id_max_length,
+#        )
 
 
     else:

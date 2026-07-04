@@ -9,7 +9,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-data/
+data/*
 build/
 develop-eggs/
 dist/
@@ -139,8 +139,15 @@ cache/
 wandb/
 
 *.db
+*.csv
+!data/test_set.csv
 
 
 #BM 25 junk.
 corpus_data/
 indexes/
+dsi_eval_cache/
+
+corpus_data*
+
+hf_cache/*

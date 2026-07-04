@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
- 
 PYTHONUNBUFFERED=1 /gpfs/work5/0/prjs1828/DSI-QG/.venv/bin/torchrun --nproc_per_node=1 run.py \
     --do_predict \
     --task generation \
